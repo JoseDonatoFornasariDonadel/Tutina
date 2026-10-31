@@ -1,0 +1,507 @@
+import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import {
+  evaluarReseteoAlertaStock,
+  evaluarYDispararAlertaStock,
+} from '@/lib/services/whatsapp.service';
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const all = searchParams.get('all') === 'true';
+  const page = Math.max(1, Number(searchParams.get('page') || 1));
+  const limit = Math.max(1, Number(searchParams.get('limit') || 12));
+  const q = (searchParams.get('q') || '').trim();
+  const codCategoria = searchParams.get('codCategoria');
+  const codMarca = searchParams.get('codMarca');
+  const codTemporada = searchParams.get('codTemporada');
+  const ordenAntiguedad = searchParams.get('ordenAntiguedad') || 'MAS_RECIENTES';
+
+  const whereClause: Prisma.ProductoWhereInput = {
+    fechaHoraBajaProd: null,
+    ...(q
+      ? {
+          OR: [
+            { nombre: { contains: q } },
+            { descripcion: { contains: q } },
+            { variantes: { some: { sku: { contains: q } } } },
+          ],
+        }
+      : {}),
+    ...(codCategoria && codCategoria !== 'TODAS'
+      ? { codCategoria: Number(codCategoria) }
+      : {}),
+    ...(codMarca && codMarca !== 'TODAS' ? { codMarca: Number(codMarca) } : {}),
+    ...(codTemporada && codTemporada !== 'TODAS'
+      ? {
+          productosTemporada: {
+            some: {
+              fechaHoraBajaPT: null,
+              codTemporada: Number(codTemporada),
+            },
+          },
+        }
+      : {}),
+  };
+
+  // Orden por antigüedad: codProducto descendente = Más recientes primero, ascendente = Más antiguas primero
+  const orderByClause: Prisma.ProductoOrderByWithRelationInput = {
+    codProducto: ordenAntiguedad === 'MAS_ANTIGUAS' ? 'asc' : 'desc',
+  };
+
+  const [
+    totalItems,
+    productos,
+    marcas,
+    categorias,
+    temporadas,
+    descuentos,
+    proveedores,
+    talles,
+    colores,
+    config,
+  ] = await Promise.all([
+    prisma.producto.count({ where: whereClause }),
+    prisma.producto.findMany({
+      where: whereClause,
+      include: {
+        marca: true,
+        categoria: true,
+        descuento: true,
+        proveedorHabitual: true,
+        productosTemporada: {
+          where: { fechaHoraBajaPT: null },
+          include: { temporada: true },
+        },
+        variantes: {
+          where: { fechaHoraBajaVar: null },
+          include: { talle: true, color: true },
+          orderBy: { talle: { ordenVisualizacion: 'asc' } },
+        },
+        historialPrecios: {
+          orderBy: { fechaRegistro: 'desc' },
+          take: 5,
+        },
+      },
+      orderBy: orderByClause,
+      ...(all
+        ? {}
+        : {
+            skip: (page - 1) * limit,
+            take: limit,
+          }),
+    }),
+    prisma.marca.findMany({
+      where: { fechaHoraBajaMarca: null },
+      include: {
+        productos: {
+          where: { fechaHoraBajaProd: null },
+          select: { codProducto: true, nombre: true },
+        },
+      },
+      orderBy: { nombreMarca: 'asc' },
+    }),
+    prisma.categoria.findMany({ where: { fechaHoraBajaCat: null } }),
+    prisma.temporada.findMany({ where: { fechaHoraBajaTemp: null } }),
+    prisma.descuento.findMany({ where: { fechaHoraBajaDesc: null } }),
+    prisma.proveedor.findMany({ where: { fechaHoraBajaProv: null } }),
+    prisma.talle.findMany({
+      where: { fechaHoraBajaTalle: null },
+      orderBy: { ordenVisualizacion: 'asc' },
+    }),
+    prisma.color.findMany({ where: { fechaHoraBajaColor: null } }),
+    prisma.configuracionTienda.findFirst(),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+
+  return NextResponse.json({
+    productos,
+    pagination: {
+      page,
+      limit,
+      totalItems,
+      totalPages,
+    },
+    marcas,
+    categorias,
+    temporadas,
+    descuentos,
+    proveedores,
+    talles,
+    colores,
+    config,
+  });
+}
+
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+
+    // Edición de una Marca existente
+    if (body.tipoEdicion === 'MARCA') {
+      if (!body.codMarca || !body.nombreMarca) {
+        return NextResponse.json(
+          { error: 'Código y nombre de la marca son obligatorios.' },
+          { status: 400 }
+        );
+      }
+      const marcaAct = await prisma.marca.update({
+        where: { codMarca: Number(body.codMarca) },
+        data: { nombreMarca: String(body.nombreMarca).trim() },
+      });
+      return NextResponse.json(marcaAct);
+    }
+
+    const {
+      codProducto,
+      nombre,
+      descripcion,
+      imagen,
+      precioCosto,
+      porcentajeMarkup,
+      precio,
+      codMarca,
+      codCategoria,
+      codDescuento,
+      codProveedorHabitual,
+      visibleEnTiendaOnline,
+      variantes,
+    } = body;
+
+    const resultado = await prisma.$transaction(async (tx) => {
+      const productoPrevio = await tx.producto.findUnique({
+        where: { codProducto: Number(codProducto) },
+      });
+
+      if (!productoPrevio) {
+        throw new Error('Producto no encontrado');
+      }
+
+      const descuentoFinal =
+        codDescuento !== null &&
+        codDescuento !== undefined &&
+        codDescuento !== '' &&
+        Number(codDescuento) > 0
+          ? Number(codDescuento)
+          : null;
+
+      const proveedorFinal =
+        codProveedorHabitual !== null &&
+        codProveedorHabitual !== undefined &&
+        codProveedorHabitual !== '' &&
+        Number(codProveedorHabitual) > 0
+          ? Number(codProveedorHabitual)
+          : null;
+
+      const prodActualizado = await tx.producto.update({
+        where: { codProducto: Number(codProducto) },
+        data: {
+          nombre,
+          descripcion,
+          imagen,
+          precioCosto: Number(precioCosto),
+          porcentajeMarkup: Number(porcentajeMarkup),
+          precio: Number(precio),
+          codMarca: Number(codMarca),
+          codCategoria: Number(codCategoria),
+          codDescuento: descuentoFinal,
+          codProveedorHabitual: proveedorFinal,
+          visibleEnTiendaOnline: Boolean(visibleEnTiendaOnline ?? true),
+        },
+      });
+
+      if (
+        productoPrevio.precioCosto !== Number(precioCosto) ||
+        productoPrevio.porcentajeMarkup !== Number(porcentajeMarkup) ||
+        productoPrevio.precio !== Number(precio)
+      ) {
+        await tx.historialPrecioProducto.create({
+          data: {
+            codProducto: prodActualizado.codProducto,
+            precioCosto: Number(precioCosto),
+            porcentajeMarkup: Number(porcentajeMarkup),
+            precioVenta: Number(precio),
+            motivo: 'Edición manual de costo/markup en Catálogo',
+          },
+        });
+      }
+
+      const alertasDisparadas = [];
+
+      if (Array.isArray(variantes)) {
+        for (const v of variantes) {
+          if (v.codVariante) {
+            await tx.varianteProducto.update({
+              where: { codVariante: Number(v.codVariante) },
+              data: {
+                stock: Number(v.stock),
+                codTalle: v.codTalle ? Number(v.codTalle) : undefined,
+                codColor: v.codColor ? Number(v.codColor) : undefined,
+                imagenVariante: v.imagenVariante !== undefined ? v.imagenVariante : undefined,
+                sku: v.sku || undefined,
+              },
+            });
+
+            await evaluarReseteoAlertaStock(tx, Number(v.codVariante));
+            const resAlerta = await evaluarYDispararAlertaStock(
+              tx,
+              Number(v.codVariante),
+              'AJUSTE_CATALOGO'
+            );
+            if (resAlerta.disparada) {
+              alertasDisparadas.push(resAlerta);
+            }
+          } else {
+            const skuNuevo =
+              v.sku ||
+              `TUT-${prodActualizado.codProducto}-${v.codTalle}-${v.codColor}-${Math.floor(
+                100 + Math.random() * 900
+              )}`;
+            const creada = await tx.varianteProducto.create({
+              data: {
+                codProducto: prodActualizado.codProducto,
+                codTalle: Number(v.codTalle),
+                codColor: Number(v.codColor),
+                stock: Number(v.stock ?? 0),
+                imagenVariante: v.imagenVariante || null,
+                sku: skuNuevo,
+                alertaStockEnviada: Number(v.stock ?? 0) < 3,
+              },
+            });
+            const resAlerta = await evaluarYDispararAlertaStock(
+              tx,
+              creada.codVariante,
+              'ALTA_VARIANTE_EDICION'
+            );
+            if (resAlerta.disparada) {
+              alertasDisparadas.push(resAlerta);
+            }
+          }
+        }
+      }
+
+      return { producto: prodActualizado, alertasDisparadas };
+    });
+
+    return NextResponse.json(resultado);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Error al actualizar el producto';
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+
+    // 1. Alta de Nueva Marca
+    if (body.tipoAlta === 'MARCA') {
+      if (!body.nombreMarca || !String(body.nombreMarca).trim()) {
+        return NextResponse.json(
+          { error: 'El nombre de la marca es obligatorio.' },
+          { status: 400 }
+        );
+      }
+      const nuevaMarca = await prisma.marca.create({
+        data: {
+          nombreMarca: String(body.nombreMarca).trim(),
+        },
+      });
+      return NextResponse.json(nuevaMarca);
+    }
+
+    // 2. Alta de Nuevo Descuento
+    if (body.tipoAlta === 'DESCUENTO') {
+      const nuevoDesc = await prisma.descuento.create({
+        data: {
+          nombreDesc: body.nombreDesc,
+          descripcionDesc: body.descripcionDesc || '',
+          porcentajeDesc: Number(body.porcentajeDesc),
+          fechaInicioDesc: new Date(body.fechaInicioDesc),
+          fechaFinDesc: new Date(body.fechaFinDesc),
+          activoEnTiendaOnline: true,
+        },
+      });
+      return NextResponse.json(nuevoDesc);
+    }
+
+    // 3. Alta de Nueva Prenda con su Lista de Variantes (Talle, Color, Stock e Imagen)
+    let marcaValida = body.codMarca
+      ? await prisma.marca.findUnique({ where: { codMarca: Number(body.codMarca) } })
+      : null;
+    if (!marcaValida) {
+      marcaValida = await prisma.marca.findFirst({ where: { fechaHoraBajaMarca: null } });
+    }
+    if (!marcaValida) {
+      marcaValida = await prisma.marca.create({ data: { nombreMarca: 'Tutina Fit' } });
+    }
+
+    let categoriaValida = body.codCategoria
+      ? await prisma.categoria.findUnique({ where: { codCategoria: Number(body.codCategoria) } })
+      : null;
+    if (!categoriaValida) {
+      categoriaValida = await prisma.categoria.findFirst({ where: { fechaHoraBajaCat: null } });
+    }
+    if (!categoriaValida) {
+      categoriaValida = await prisma.categoria.create({
+        data: { nombreCategoria: 'Indumentaria General', markupPorDefectoCategoria: 120 },
+      });
+    }
+
+    let temporadaValida = body.codTemporada
+      ? await prisma.temporada.findUnique({ where: { codTemporada: Number(body.codTemporada) } })
+      : null;
+    if (!temporadaValida) {
+      temporadaValida = await prisma.temporada.findFirst({ where: { fechaHoraBajaTemp: null } });
+    }
+
+    const descuentoValido =
+      body.codDescuento && Number(body.codDescuento) > 0
+        ? await prisma.descuento.findUnique({ where: { codDescuento: Number(body.codDescuento) } })
+        : null;
+
+    const proveedorValido =
+      body.codProveedorHabitual && Number(body.codProveedorHabitual) > 0
+        ? await prisma.proveedor.findUnique({
+            where: { codProveedor: Number(body.codProveedorHabitual) },
+          })
+        : null;
+
+    const talleDefault =
+      (await prisma.talle.findFirst({ where: { fechaHoraBajaTalle: null } })) ||
+      (await prisma.talle.create({ data: { nombreTalle: 'M' } }));
+    const colorDefault =
+      (await prisma.color.findFirst({ where: { fechaHoraBajaColor: null } })) ||
+      (await prisma.color.create({ data: { nombreColor: 'Negro', codigoHex: '#18181B' } }));
+
+    const variantesInput =
+      Array.isArray(body.variantes) && body.variantes.length > 0
+        ? body.variantes
+        : [
+            {
+              codTalle: talleDefault.codTalle,
+              codColor: colorDefault.codColor,
+              stock: 5,
+              imagenVariante: null,
+            },
+          ];
+
+    const prefijoPrenda =
+      String(body.nombre || 'TUT')
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .toUpperCase()
+        .slice(0, 4) || 'TUT';
+
+    const variantesValidadas = [];
+    for (let idx = 0; idx < variantesInput.length; idx++) {
+      const v = variantesInput[idx];
+      const talleCheck = v.codTalle
+        ? await prisma.talle.findUnique({ where: { codTalle: Number(v.codTalle) } })
+        : null;
+      const colorCheck = v.codColor
+        ? await prisma.color.findUnique({ where: { codColor: Number(v.codColor) } })
+        : null;
+
+      const talleFinal = talleCheck || talleDefault;
+      const colorFinal = colorCheck || colorDefault;
+
+      const colorCode = colorFinal.nombreColor
+        .replace(/[^a-zA-Z]/g, '')
+        .toUpperCase()
+        .slice(0, 3);
+      let skuCandidato = v.sku
+        ? String(v.sku).trim()
+        : `TUT-${prefijoPrenda}-${talleFinal.nombreTalle}-${colorCode}-${Math.floor(
+            100 + Math.random() * 900
+          )}`;
+
+      const skuExiste = await prisma.varianteProducto.findUnique({
+        where: { sku: skuCandidato },
+      });
+      if (skuExiste) {
+        skuCandidato = `${skuCandidato}-${idx + 1}${Math.floor(10 + Math.random() * 89)}`;
+      }
+
+      variantesValidadas.push({
+        sku: skuCandidato,
+        codTalle: talleFinal.codTalle,
+        codColor: colorFinal.codColor,
+        stock: Number(v.stock ?? 0),
+        imagenVariante: v.imagenVariante || null,
+        alertaStockEnviada: Number(v.stock ?? 0) < 3,
+      });
+    }
+
+    const primeraImagenVariante = variantesValidadas.find((v) => v.imagenVariante)?.imagenVariante;
+    const imagenPrincipalPrenda =
+      primeraImagenVariante ||
+      body.imagen ||
+      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80';
+
+    const nuevoProd = await prisma.producto.create({
+      data: {
+        nombre: String(body.nombre).trim(),
+        descripcion: body.descripcion ? String(body.descripcion).trim() : '',
+        imagen: imagenPrincipalPrenda,
+        precioCosto: Number(body.precioCosto),
+        porcentajeMarkup: Number(body.porcentajeMarkup),
+        precio: Number(body.precio),
+        codMarca: marcaValida.codMarca,
+        codCategoria: categoriaValida.codCategoria,
+        codDescuento: descuentoValido ? descuentoValido.codDescuento : null,
+        codProveedorHabitual: proveedorValido ? proveedorValido.codProveedor : null,
+        productosTemporada: temporadaValida
+          ? {
+              create: [
+                { anio: new Date().getFullYear(), codTemporada: temporadaValida.codTemporada },
+              ],
+            }
+          : undefined,
+        historialPrecios: {
+          create: [
+            {
+              precioCosto: Number(body.precioCosto),
+              porcentajeMarkup: Number(body.porcentajeMarkup),
+              precioVenta: Number(body.precio),
+              motivo: 'Alta inicial en catálogo',
+            },
+          ],
+        },
+        variantes: {
+          create: variantesValidadas,
+        },
+      },
+      include: {
+        marca: true,
+        categoria: true,
+        variantes: { include: { talle: true, color: true } },
+      },
+    });
+
+    return NextResponse.json(nuevoProd);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Error al crear registro en catálogo';
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const codMarca = Number(searchParams.get('codMarca'));
+    if (!codMarca) {
+      return NextResponse.json({ error: 'Código de marca inválido' }, { status: 400 });
+    }
+
+    await prisma.marca.update({
+      where: { codMarca },
+      data: { fechaHoraBajaMarca: new Date() },
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Error al dar de baja la marca';
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
+}

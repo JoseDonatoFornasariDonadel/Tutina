@@ -1,0 +1,317 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ==========================================
+// 1. CONFIGURACIÓN E IDENTIDAD (TUTINA)
+// ==========================================
+model ConfiguracionTienda {
+  idConfiguracion                Int      @id @default(autoincrement())
+  nombreComercial                String   @default("Tutina")
+  logoUrl                        String   @default("/tutina-logo.svg")
+  slogan                         String   @default("Indumentaria Deportiva & Urbana")
+  telefonoWhatsAppNotificaciones String   @default("+5493510000000")
+  whatsappWebhookUrl             String?
+  whatsappApiToken               String?
+  cuit                           String?  @default("27-00000000-4")
+  direccionComercial             String?  @default("Showroom Central")
+  instagramHandle                String?  @default("@tutina.indumentaria")
+  markupPorDefectoGlobal         Float    @default(120.0)
+  umbralAlertaStockDefault       Int      @default(3)
+  fechaUltimaModificacion        DateTime @default(now())
+}
+
+// ==========================================
+// 2. CATÁLOGO, VARIANTES Y PRECIOS
+// ==========================================
+model Marca {
+  codMarca           Int        @id @default(autoincrement())
+  nombreMarca        String
+  fechaHoraBajaMarca DateTime?
+  productos          Producto[]
+}
+
+model Categoria {
+  codCategoria              Int        @id @default(autoincrement())
+  nombreCategoria           String
+  rubro                     String     @default("Deportivo Femenino")
+  markupPorDefectoCategoria Float      @default(120.0)
+  fechaHoraBajaCat          DateTime?
+  productos                 Producto[]
+}
+
+model Temporada {
+  codTemporada       Int                 @id @default(autoincrement())
+  nombreTemporada    String
+  fechaHoraBajaTemp  DateTime?
+  productosTemporada ProductoTemporada[]
+}
+
+model ProductoTemporada {
+  idProductoTemporada Int       @id @default(autoincrement())
+  anio                Int
+  fechaAsignacion     DateTime  @default(now())
+  fechaHoraBajaPT     DateTime?
+  codProducto         Int
+  codTemporada        Int
+  producto            Producto  @relation(fields: [codProducto], references: [codProducto])
+  temporada           Temporada @relation(fields: [codTemporada], references: [codTemporada])
+}
+
+model Descuento {
+  codDescuento         Int        @id @default(autoincrement())
+  nombreDesc           String
+  descripcionDesc      String?
+  porcentajeDesc       Int
+  fechaInicioDesc      DateTime
+  fechaFinDesc         DateTime
+  activoEnTiendaOnline Boolean    @default(true)
+  fechaHoraBajaDesc    DateTime?
+  productos            Producto[]
+}
+
+model Producto {
+  codProducto           Int                 @id @default(autoincrement())
+  nombre                String
+  descripcion           String
+  imagen                String
+  precioCosto           Float
+  porcentajeMarkup      Float               @default(120.0)
+  precio                Float
+  visibleEnTiendaOnline Boolean             @default(true)
+  fechaHoraBajaProd     DateTime?
+  codMarca              Int
+  codCategoria          Int
+  codDescuento          Int?
+  codProveedorHabitual  Int?
+  marca                 Marca               @relation(fields: [codMarca], references: [codMarca])
+  categoria             Categoria           @relation(fields: [codCategoria], references: [codCategoria])
+  descuento             Descuento?          @relation(fields: [codDescuento], references: [codDescuento])
+  proveedorHabitual     Proveedor?          @relation(fields: [codProveedorHabitual], references: [codProveedor])
+  variantes             VarianteProducto[]
+  productosTemporada    ProductoTemporada[]
+  historialPrecios      HistorialPrecioProducto[]
+}
+
+model HistorialPrecioProducto {
+  idHistorial      Int      @id @default(autoincrement())
+  codProducto      Int
+  fechaRegistro    DateTime @default(now())
+  precioCosto      Float
+  porcentajeMarkup Float
+  precioVenta      Float
+  motivo           String   @default("Actualización de catálogo")
+  producto         Producto @relation(fields: [codProducto], references: [codProducto])
+}
+
+model Talle {
+  codTalle           Int                @id @default(autoincrement())
+  nombreTalle        String
+  tipoTalle          String             @default("Alfanumérico")
+  ordenVisualizacion Int                @default(1)
+  fechaHoraBajaTalle DateTime?
+  variantes          VarianteProducto[]
+}
+
+model Color {
+  codColor           Int                @id @default(autoincrement())
+  nombreColor        String
+  codigoHex          String             @default("#111827")
+  fechaHoraBajaColor DateTime?
+  variantes          VarianteProducto[]
+}
+
+model VarianteProducto {
+  codVariante        Int                  @id @default(autoincrement())
+  sku                String               @unique
+  stock              Int                  @default(0)
+  umbralStockPropio  Int                  @default(3)
+  alertaStockEnviada Boolean              @default(false)
+  imagenVariante     String?
+  fechaHoraBajaVar   DateTime?
+  codProducto        Int
+  codTalle           Int
+  codColor           Int
+  producto           Producto             @relation(fields: [codProducto], references: [codProducto])
+  talle              Talle                @relation(fields: [codTalle], references: [codTalle])
+  color              Color                @relation(fields: [codColor], references: [codColor])
+  detallesIngreso    DetalleIngreso[]
+  detallesPedido     DetallePedido[]
+  alertasWhatsApp    AlertaWhatsAppLog[]
+}
+
+// ==========================================
+// 3. PROVEEDORES E INGRESOS DE MERCADERÍA
+// ==========================================
+model Proveedor {
+  codProveedor       Int        @id @default(autoincrement())
+  nombreProveedor    String
+  webProveedor       String?
+  numeroProveedor    String
+  correoProveedor    String?
+  fechaHoraBajaProv  DateTime?
+  facturas           Factura[]
+  productosHabituales Producto[]
+}
+
+model Factura {
+  idFactura            Int              @id @default(autoincrement())
+  nroFactura           String
+  fechaFactura         DateTime         @default(now())
+  fechaRegistroIngreso DateTime         @default(now())
+  rutaFacturaPDF       String?
+  ivaFactura           Float            @default(21.0)
+  costoTotal           Float
+  fechaHoraBajaFact    DateTime?
+  codProveedor         Int
+  proveedor            Proveedor        @relation(fields: [codProveedor], references: [codProveedor])
+  detallesIngreso      DetalleIngreso[]
+}
+
+model DetalleIngreso {
+  idDetalleIngreso Int              @id @default(autoincrement())
+  cantidadDI       Int
+  precioIndividual Float
+  subtotalDI       Float
+  idFactura        Int
+  codVariante      Int
+  factura          Factura          @relation(fields: [idFactura], references: [idFactura])
+  variante         VarianteProducto @relation(fields: [codVariante], references: [codVariante])
+}
+
+// ==========================================
+// 4. PEDIDOS, CLIENTES Y ESTADOS
+// ==========================================
+model Cliente {
+  codCliente           Int       @id @default(autoincrement())
+  nombreCliente        String
+  apellidoCliente      String
+  telefonoCliente      String
+  emailCliente         String?
+  dniCuit              String?
+  fechaAltaCliente     DateTime  @default(now())
+  fechaHoraBajaCliente DateTime?
+  pedidos              Pedido[]
+}
+
+model EstadoPedido {
+  codEP                  Int            @id @default(autoincrement())
+  nombreEP               String
+  colorBadge             String         @default("emerald")
+  reservaStock           Boolean        @default(true)
+  liberaStock            Boolean        @default(false)
+  impactaEnReportesVenta Boolean        @default(true)
+  fechaHoraBajaEP        DateTime?
+  pedidosActuales        Pedido[]       @relation("PedidoEstadoActual")
+  historialEstados       PedidoEstado[]
+}
+
+model Pedido {
+  nroPedido            Int               @id @default(autoincrement())
+  fechaPedido          DateTime          @default(now())
+  canalVenta           String            @default("LOCAL_MANUAL")
+  subtotalBruto        Float
+  montoDescuentosTotal Float             @default(0)
+  total                Float
+  totalPagado          Float             @default(0)
+  totalAPagar          Float             @default(0)
+  observaciones        String?
+  codCliente           Int
+  codEstadoActual      Int
+  cliente              Cliente           @relation(fields: [codCliente], references: [codCliente])
+  estadoActual         EstadoPedido      @relation("PedidoEstadoActual", fields: [codEstadoActual], references: [codEP])
+  detallesPedido       DetallePedido[]
+  historialEstados     PedidoEstado[]
+  formasPago           PedidoFormaPago[]
+}
+
+model DetallePedido {
+  idDetallePedido             Int              @id @default(autoincrement())
+  Cantidad                    Int
+  precioUnitarioVenta         Float
+  porcentajeDescuentoAplicado Int              @default(0)
+  precioUnitarioNeto          Float
+  precioUnitarioCostoHistorico Float
+  subtotal                    Float
+  nroPedido                   Int
+  codVariante                 Int
+  pedido                      Pedido           @relation(fields: [nroPedido], references: [nroPedido])
+  variante                    VarianteProducto @relation(fields: [codVariante], references: [codVariante])
+}
+
+model PedidoEstado {
+  idPedidoEstado Int          @id @default(autoincrement())
+  fechaInicioPE  DateTime     @default(now())
+  fechaFinPE     DateTime?
+  motivoCambio   String?
+  nroPedido      Int
+  codEP          Int
+  pedido         Pedido       @relation(fields: [nroPedido], references: [nroPedido])
+  estadoPedido   EstadoPedido @relation(fields: [codEP], references: [codEP])
+}
+
+model FormaPago {
+  codFP                        Int               @id @default(autoincrement())
+  nombreFP                     String
+  porcentajeComisionActual     Float             @default(0.0)
+  recargoFinancieroPorcentaje  Float             @default(0.0)
+  fechaHoraBajaFP              DateTime?
+  pagosPedido                  PedidoFormaPago[]
+}
+
+model PedidoFormaPago {
+  idPedidoFormaPago         Int       @id @default(autoincrement())
+  montoPFP                  Float
+  fechaPFP                  DateTime  @default(now())
+  porcentajeComisionAplicado Float    @default(0.0)
+  montoComisionCalculado    Float     @default(0.0)
+  comprobanteReferencia     String?
+  nroPedido                 Int
+  codFP                     Int
+  pedido                    Pedido    @relation(fields: [nroPedido], references: [nroPedido])
+  formaPago                 FormaPago @relation(fields: [codFP], references: [codFP])
+}
+
+// ==========================================
+// 5. GASTOS OPERATIVOS (UTILIDAD NETA)
+// ==========================================
+model CategoriaGasto {
+  codCategoriaGasto    Int              @id @default(autoincrement())
+  nombreCategoriaGasto String
+  esCostoFijoMensual   Boolean          @default(true)
+  fechaHoraBajaCG      DateTime?
+  gastos               GastoOperativo[]
+}
+
+model GastoOperativo {
+  idGasto               Int            @id @default(autoincrement())
+  descripcionGasto      String
+  montoGasto            Float
+  fechaImputacion       DateTime       @default(now())
+  comprobanteUrl        String?
+  fechaHoraBajaGasto    DateTime?
+  codCategoriaGasto     Int
+  categoriaGasto        CategoriaGasto @relation(fields: [codCategoriaGasto], references: [codCategoriaGasto])
+}
+
+// ==========================================
+// 6. AUDITORÍA DE ALERTAS WHATSAPP (STOCK < 3)
+// ==========================================
+model AlertaWhatsAppLog {
+  idAlerta          Int              @id @default(autoincrement())
+  fechaDisparo      DateTime         @default(now())
+  telefonoDestino   String
+  mensajeEnviado    String
+  stockRemanente    Int
+  estadoEnvio       String           @default("ENVIADO")
+  origenDisparo     String           @default("VENTA_PEDIDO")
+  leidaEnPanel      Boolean          @default(false)
+  codVariante       Int
+  variante          VarianteProducto @relation(fields: [codVariante], references: [codVariante])
+}
