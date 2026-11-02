@@ -112,6 +112,11 @@ export async function GET() {
       Math.floor((ahora.getTime() - fechaReferencia.getTime()) / msPorDia)
     );
 
+    // Saldo real: total del pedido menos lo que ya se pagó (pagos iniciales y entregas parciales).
+    // Se usa totalPagado porque es el acumulado que mantienen todos los registros de pago.
+    const totalPagado = Math.min(pedido.total, Math.max(0, pedido.totalPagado ?? 0));
+    const saldoPendiente = Math.round((pedido.total - totalPagado) * 100) / 100;
+
     return {
       nroPedido: pedido.nroPedido,
       fechaPedido: pedido.fechaPedido,
@@ -119,6 +124,8 @@ export async function GET() {
       fechaReferencia: fechaReferencia.toISOString(),
       diasEnEstado,
       total: pedido.total,
+      totalPagado,
+      saldoPendiente,
       observaciones: pedido.observaciones,
       cliente: pedido.cliente,
       estadoActual: pedido.estadoActual,
@@ -127,11 +134,14 @@ export async function GET() {
   });
 
   // Filtrar los que superan los días de tolerancia configurados
-  const pedidosPendientesVencidos = pedidosConAntiguedad
+  // Un pedido sin saldo pendiente no tiene nada que cobrar, así que no genera alerta
+  const pedidosConSaldo = pedidosConAntiguedad.filter((p) => p.saldoPendiente > 0);
+
+  const pedidosPendientesVencidos = pedidosConSaldo
     .filter((p) => p.diasEnEstado >= diasTolerancia)
     .sort((a, b) => b.diasEnEstado - a.diasEnEstado);
 
-  const pedidosPendientesEnPlazo = pedidosConAntiguedad
+  const pedidosPendientesEnPlazo = pedidosConSaldo
     .filter((p) => p.diasEnEstado < diasTolerancia)
     .sort((a, b) => b.diasEnEstado - a.diasEnEstado);
 
