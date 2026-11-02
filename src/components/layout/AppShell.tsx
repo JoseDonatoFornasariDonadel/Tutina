@@ -122,7 +122,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       if (isPublicStorefront) return;
       const [cfgRes, alRes] = await Promise.all([
         fetch('/api/configuracion', { cache: 'no-store' }),
-        fetch('/api/alertas', { cache: 'no-store' }),
+        // Modo resumen: solo los contadores, sin traer el detalle de cada alerta
+        fetch('/api/alertas?resumen=1', { cache: 'no-store' }),
       ]);
       if (cfgRes.ok) {
         const cfgData = await cfgRes.json();
@@ -130,8 +131,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
       if (alRes.ok) {
         const alData = await alRes.json();
-        const stockCount = alData.variantesCriticas?.length ?? 0;
-        const vencidosCount = alData.pedidosPendientesVencidos?.length ?? 0;
+        const stockCount = alData.cantidadVariantesCriticas ?? 0;
+        const vencidosCount = alData.cantidadPedidosPendientesVencidos ?? 0;
         setAlertasCriticasCount(stockCount);
         setPedidosVencidosCount(vencidosCount);
       }
