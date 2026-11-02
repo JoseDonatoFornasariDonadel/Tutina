@@ -24,6 +24,10 @@ model ConfiguracionTienda {
   instagramHandle                String?  @default("@tutina.indumentaria")
   markupPorDefectoGlobal         Float    @default(120.0)
   umbralAlertaStockDefault       Int      @default(3)
+  // Días que puede estar un pedido "Entregado y pendiente de pago" antes de generar alerta
+  diasToleranciaPendientePago    Int      @default(5)
+  // Desde qué fecha se cuentan esos días: FECHA_PEDIDO o CAMBIO_ESTADO
+  alertaPagoContarDesde          String   @default("FECHA_PEDIDO")
   fechaUltimaModificacion        DateTime @default(now())
 }
 

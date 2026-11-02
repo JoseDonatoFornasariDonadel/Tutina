@@ -7,6 +7,7 @@ import {
   Upload,
   CheckCircle2,
   Phone,
+  Clock,
   Sparkles,
   Percent,
   BellRing,
@@ -27,6 +28,8 @@ export default function ConfiguracionPage() {
     instagramHandle: '@tutina.indumentaria',
     markupPorDefectoGlobal: 120,
     umbralAlertaStockDefault: 3,
+    diasToleranciaPendientePago: 5,
+    alertaPagoContarDesde: 'FECHA_PEDIDO' as 'FECHA_PEDIDO' | 'CAMBIO_ESTADO',
   });
   const [guardando, setGuardando] = useState(false);
   const [mensajeExito, setMensajeExito] = useState(false);
@@ -45,6 +48,9 @@ export default function ConfiguracionPage() {
         instagramHandle: config.instagramHandle || '',
         markupPorDefectoGlobal: config.markupPorDefectoGlobal ?? 120,
         umbralAlertaStockDefault: config.umbralAlertaStockDefault ?? 3,
+        diasToleranciaPendientePago: config.diasToleranciaPendientePago ?? 5,
+        alertaPagoContarDesde:
+          config.alertaPagoContarDesde === 'CAMBIO_ESTADO' ? 'CAMBIO_ESTADO' : 'FECHA_PEDIDO',
       });
     }
   }, [config]);
@@ -288,6 +294,55 @@ export default function ConfiguracionPage() {
               />
               <span className="text-[11px] text-slate-500 mt-1 block">
                 Dispara WhatsApp cuando <code>stock &lt; {form.umbralAlertaStockDefault}</code>.
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-rose-800 mb-1 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" /> Días de tolerancia de cobro (Entregado y pendiente
+                de pago)
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={365}
+                step={1}
+                required
+                value={form.diasToleranciaPendientePago}
+                onChange={(e) =>
+                  setForm({ ...form, diasToleranciaPendientePago: Number(e.target.value) })
+                }
+                className="w-full px-3.5 py-2 text-sm font-bold text-rose-900 bg-white rounded-xl border border-rose-300"
+              />
+              <span className="text-[11px] text-slate-500 mt-1 block">
+                Alerta cuando un pedido lleva {form.diasToleranciaPendientePago} días o más sin
+                cobrarse.
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-rose-800 mb-1 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" /> Contar los días de cobro desde
+              </label>
+              <select
+                value={form.alertaPagoContarDesde}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    alertaPagoContarDesde: e.target.value as 'FECHA_PEDIDO' | 'CAMBIO_ESTADO',
+                  })
+                }
+                className="w-full px-3.5 py-2 text-sm font-semibold text-rose-900 bg-white rounded-xl border border-rose-300"
+              >
+                <option value="FECHA_PEDIDO">La fecha del pedido</option>
+                <option value="CAMBIO_ESTADO">
+                  El día que pasó a &ldquo;Entregado y pendiente de pago&rdquo;
+                </option>
+              </select>
+              <span className="text-[11px] text-slate-500 mt-1 block">
+                {form.alertaPagoContarDesde === 'FECHA_PEDIDO'
+                  ? 'Un pedido viejo que pasa hoy a este estado alerta enseguida si ya superó la tolerancia.'
+                  : 'El conteo arranca de cero cada vez que el pedido entra en este estado.'}
               </span>
             </div>
 

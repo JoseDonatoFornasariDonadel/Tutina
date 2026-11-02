@@ -326,7 +326,40 @@ export async function POST(request: Request) {
       return NextResponse.json(nuevoDesc);
     }
 
-    // 3. Alta de Nueva Prenda con su Lista de Variantes (Talle, Color, Stock e Imagen)
+    // 3. Alta de Nuevo Color (desde el selector con buscador del catálogo)
+    if (body.tipoAlta === 'COLOR') {
+      const nombreColor = String(body.nombreColor || '').trim();
+      if (!nombreColor) {
+        return NextResponse.json(
+          { error: 'El nombre del color es obligatorio.' },
+          { status: 400 }
+        );
+      }
+      const hexValido = /^#[0-9a-fA-F]{6}$/.test(String(body.codigoHex || ''))
+        ? String(body.codigoHex)
+        : '#111827';
+
+      // Si ya existe un color con ese nombre (sin distinguir mayúsculas), se reutiliza
+      const existente = await prisma.color.findFirst({
+        where: { nombreColor: { equals: nombreColor, mode: 'insensitive' } },
+      });
+      if (existente) {
+        const color = existente.fechaHoraBajaColor
+          ? await prisma.color.update({
+              where: { codColor: existente.codColor },
+              data: { fechaHoraBajaColor: null },
+            })
+          : existente;
+        return NextResponse.json(color);
+      }
+
+      const nuevoColor = await prisma.color.create({
+        data: { nombreColor, codigoHex: hexValido },
+      });
+      return NextResponse.json(nuevoColor);
+    }
+
+    // 4. Alta de Nueva Prenda con su Lista de Variantes (Talle, Color, Stock e Imagen)
     let marcaValida = body.codMarca
       ? await prisma.marca.findUnique({ where: { codMarca: Number(body.codMarca) } })
       : null;
@@ -451,6 +484,7 @@ export async function POST(request: Request) {
         codCategoria: categoriaValida.codCategoria,
         codDescuento: descuentoValido ? descuentoValido.codDescuento : null,
         codProveedorHabitual: proveedorValido ? proveedorValido.codProveedor : null,
+        visibleEnTiendaOnline: body.visibleEnTiendaOnline === false ? false : true,
         productosTemporada: temporadaValida
           ? {
               create: [
@@ -489,6 +523,14 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
+
+    // Eliminación de una prenda
+    const codProducto = Number(searchParams.get('codProducto'));
+    if (codProducto) {
+      const resultado = await eliminarProducto(codProducto);
+      return NextResponse.json(resultado);
+    }
+
     const codMarca = Number(searchParams.get('codMarca'));
     if (!codMarca) {
       return NextResponse.json({ error: 'Código de marca inválido' }, { status: 400 });
@@ -501,7 +543,53 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Error al dar de baja la marca';
+    const msg = error instanceof Error ? error.message : 'Error al eliminar';
     return NextResponse.json({ error: msg }, { status: 400 });
   }
+}
+
+/**
+ * Elimina una prenda.
+ * - Si nunca se vendió ni ingresó en una factura, se borra definitivamente junto con
+ *   sus variantes (stock e imágenes), historial de precios, temporadas y alertas.
+ * - Si tiene ventas o ingresos registrados, borrarla rompería los pedidos, facturas y
+ *   reportes. En ese caso se da de baja: desaparece del panel y de la tienda, pero el
+ *   historial queda intacto.
+ */
+async function eliminarProducto(codProducto: number) {
+  return prisma.$transaction(async (tx) => {
+    const producto = await tx.producto.findUnique({
+      where: { codProducto },
+      include: { variantes: { select: { codVariante: true } } },
+    });
+    if (!producto) {
+      throw new Error('Prenda no encontrada.');
+    }
+
+    const codVariantes = producto.variantes.map((v) => v.codVariante);
+    const [ventas, ingresos] = await Promise.all([
+      tx.detallePedido.count({ where: { codVariante: { in: codVariantes } } }),
+      tx.detalleIngreso.count({ where: { codVariante: { in: codVariantes } } }),
+    ]);
+
+    if (ventas > 0 || ingresos > 0) {
+      const ahora = new Date();
+      await tx.varianteProducto.updateMany({
+        where: { codProducto, fechaHoraBajaVar: null },
+        data: { fechaHoraBajaVar: ahora },
+      });
+      await tx.producto.update({
+        where: { codProducto },
+        data: { fechaHoraBajaProd: ahora, visibleEnTiendaOnline: false },
+      });
+      return { ok: true, modo: 'BAJA' as const, ventas, ingresos };
+    }
+
+    await tx.alertaWhatsAppLog.deleteMany({ where: { codVariante: { in: codVariantes } } });
+    await tx.varianteProducto.deleteMany({ where: { codProducto } });
+    await tx.historialPrecioProducto.deleteMany({ where: { codProducto } });
+    await tx.productoTemporada.deleteMany({ where: { codProducto } });
+    await tx.producto.delete({ where: { codProducto } });
+    return { ok: true, modo: 'ELIMINADA' as const, ventas: 0, ingresos: 0 };
+  });
 }

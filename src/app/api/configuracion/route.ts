@@ -35,6 +35,12 @@ export async function PUT(request: Request) {
       instagramHandle: body.instagramHandle || null,
       markupPorDefectoGlobal: Number(body.markupPorDefectoGlobal ?? 120),
       umbralAlertaStockDefault: Number(body.umbralAlertaStockDefault ?? 3),
+      diasToleranciaPendientePago: Math.min(
+        365,
+        Math.max(0, Math.round(Number(body.diasToleranciaPendientePago ?? 5)) || 0)
+      ),
+      alertaPagoContarDesde:
+        body.alertaPagoContarDesde === 'CAMBIO_ESTADO' ? 'CAMBIO_ESTADO' : 'FECHA_PEDIDO',
       fechaUltimaModificacion: new Date(),
     };
 

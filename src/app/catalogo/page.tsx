@@ -22,7 +22,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
+  EyeOff,
 } from 'lucide-react';
+import { ColorSelector, type ColorOpcion } from '@/components/catalogo/ColorSelector';
 import {
   calcularCoeficienteReventa,
   calcularMarkupReverso,
@@ -525,6 +527,61 @@ export default function CatalogoPage() {
     }
   };
 
+  // Alta de color desde el selector con buscador (queda disponible para todas las prendas)
+  const crearColor = async (nombreColor: string, codigoHex: string): Promise<ColorOpcion> => {
+    const res = await fetch('/api/catalogo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipoAlta: 'COLOR', nombreColor, codigoHex }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'No se pudo crear el color');
+    const nuevo: ColorOpcion = {
+      codColor: data.codColor,
+      nombreColor: data.nombreColor,
+      codigoHex: data.codigoHex,
+    };
+    setColores((prev) =>
+      prev.some((c) => c.codColor === nuevo.codColor) ? prev : [...prev, nuevo]
+    );
+    return nuevo;
+  };
+
+  const [eliminando, setEliminando] = useState<boolean>(false);
+
+  const eliminarProducto = async () => {
+    if (!productoEditando) return;
+    const confirmado = confirm(
+      `¿Eliminar definitivamente "${productoEditando.nombre}"?\n\n` +
+        'Se borran la prenda, sus variantes (stock e imágenes) y su historial de precios. ' +
+        'Si la prenda ya tiene ventas o facturas de ingreso, se da de baja en lugar de borrarse, ' +
+        'para no alterar pedidos ni reportes.\n\nEsta acción no se puede deshacer.'
+    );
+    if (!confirmado) return;
+    setEliminando(true);
+    try {
+      const res = await fetch(`/api/catalogo?codProducto=${productoEditando.codProducto}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al eliminar la prenda');
+      setNotificacion({
+        tipo: 'ok',
+        texto:
+          data.modo === 'BAJA'
+            ? `"${productoEditando.nombre}" se dio de baja: ya no aparece en el catálogo ni en la tienda. Se conservó su historial (${data.ventas} venta(s), ${data.ingresos} ingreso(s)).`
+            : `"${productoEditando.nombre}" se eliminó definitivamente.`,
+      });
+      setProductoEditando(null);
+      await cargarCatalogo(paginaActual);
+      await refreshGlobalState();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Error al eliminar');
+    } finally {
+      setEliminando(false);
+    }
+  };
+
   const guardarEdicionProducto = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productoEditando) return;
@@ -936,6 +993,11 @@ export default function CatalogoPage() {
                     <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/90 text-slate-800 backdrop-blur-xs">
                       {prod.marca.nombreMarca}
                     </span>
+                    {!prod.visibleEnTiendaOnline && (
+                      <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500 text-white inline-flex items-center gap-1">
+                        <EyeOff className="w-3 h-3" /> Oculta en tienda
+                      </span>
+                    )}
                   </div>
 
                   {pctDesc > 0 && (
@@ -1161,6 +1223,35 @@ export default function CatalogoPage() {
               onSubmit={guardarEdicionProducto}
               className="p-6 space-y-6 max-h-[82vh] overflow-y-auto"
             >
+              {/* Visibilidad en la tienda pública */}
+              <label className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-slate-200 bg-slate-50/70 cursor-pointer">
+                <div className="flex items-start gap-2.5">
+                  <EyeOff className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
+                  <div>
+                    <div className="text-sm font-bold text-slate-800">No mostrar prenda</div>
+                    <p className="text-xs text-slate-500">
+                      Oculta la prenda de la tienda pública. Sigue visible y editable en este panel.
+                    </p>
+                  </div>
+                </div>
+                <span className="relative inline-flex shrink-0">
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    className="peer sr-only"
+                    checked={!productoEditando.visibleEnTiendaOnline}
+                    onChange={(e) =>
+                      setProductoEditando({
+                        ...productoEditando,
+                        visibleEnTiendaOnline: !e.target.checked,
+                      })
+                    }
+                  />
+                  <span className="w-11 h-6 rounded-full bg-slate-300 peer-checked:bg-rose-600 transition peer-focus-visible:ring-2 peer-focus-visible:ring-rose-300" />
+                  <span className="absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+                </span>
+              </label>
+
               {/* Simulador interactivo de Precio de Costo -> Markup -> Precio de Venta */}
               <div className="p-5 rounded-2xl bg-gradient-to-br from-rose-50/70 via-white to-indigo-50/50 border border-rose-200/80 space-y-4">
                 <div className="flex items-center justify-between">
@@ -1633,26 +1724,19 @@ export default function CatalogoPage() {
                         <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
                           Color
                         </label>
-                        <select
+                        <ColorSelector
+                          colores={colores}
                           value={v.codColor ?? v.color?.codColor}
-                          onChange={(e) => {
-                            const codC = Number(e.target.value);
-                            const cObj = colores.find((x) => x.codColor === codC);
+                          onCrearColor={crearColor}
+                          onChange={(cObj) => {
                             const nuevas = [...productoEditando.variantes];
-                            nuevas[idx] = { ...v, codColor: codC, color: cObj || v.color };
+                            nuevas[idx] = { ...v, codColor: cObj.codColor, color: cObj };
                             setProductoEditando({
                               ...productoEditando,
                               variantes: nuevas as ProductoCat['variantes'],
                             });
                           }}
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-medium"
-                        >
-                          {colores.map((c) => (
-                            <option key={c.codColor} value={c.codColor}>
-                              {c.nombreColor}
-                            </option>
-                          ))}
-                        </select>
+                        />
                       </div>
 
                       <div className="sm:col-span-2">
@@ -1706,7 +1790,16 @@ export default function CatalogoPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+              <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={eliminarProducto}
+                  disabled={eliminando || guardando}
+                  className="mr-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-200 text-sm font-semibold text-rose-700 hover:bg-rose-50 cursor-pointer disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {eliminando ? 'Eliminando...' : 'Eliminar prenda'}
+                </button>
                 <button
                   type="button"
                   onClick={() => setProductoEditando(null)}
@@ -2191,21 +2284,21 @@ export default function CatalogoPage() {
                               />
                             )}
                           </label>
-                          <select
+                          <ColorSelector
+                            colores={colores}
                             value={item.codColor}
-                            onChange={(e) => {
-                              const copia = [...listaVariantesNuevas];
-                              copia[idx] = { ...item, codColor: Number(e.target.value) };
-                              setListaVariantesNuevas(copia);
+                            onCrearColor={crearColor}
+                            onChange={(cObj) => {
+                              // Actualización funcional: el color recién creado llega después de un await
+                              setListaVariantesNuevas((prev) =>
+                                prev.map((row) =>
+                                  row.idTemp === item.idTemp
+                                    ? { ...row, codColor: cObj.codColor }
+                                    : row
+                                )
+                              );
                             }}
-                            className="w-full px-2.5 py-2 text-xs font-medium rounded-lg border border-slate-300 bg-white"
-                          >
-                            {colores.map((c) => (
-                              <option key={c.codColor} value={c.codColor}>
-                                {c.nombreColor}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
 
                         <div className="sm:col-span-2">

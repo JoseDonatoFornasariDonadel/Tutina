@@ -35,6 +35,8 @@ export interface TiendaConfig {
   instagramHandle?: string | null;
   markupPorDefectoGlobal: number;
   umbralAlertaStockDefault: number;
+  diasToleranciaPendientePago: number;
+  alertaPagoContarDesde: 'FECHA_PEDIDO' | 'CAMBIO_ESTADO';
 }
 
 interface AppContextType {
@@ -53,6 +55,8 @@ const defaultConfig: TiendaConfig = {
   telefonoWhatsAppNotificaciones: '+5493516543210',
   markupPorDefectoGlobal: 120,
   umbralAlertaStockDefault: 3,
+  diasToleranciaPendientePago: 5,
+  alertaPagoContarDesde: 'FECHA_PEDIDO',
 };
 
 const AppContext = createContext<AppContextType>({
@@ -182,7 +186,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       href: '/alertas',
       label: 'Alertas WhatsApp',
       icon: MessageSquareWarning,
-      desc: 'Stock < 3 y Cobros +5 días',
+      desc: `Stock < ${config.umbralAlertaStockDefault} y Cobros +${config.diasToleranciaPendientePago} días`,
       badge: alertasCriticasCount + pedidosVencidosCount,
     },
     {
@@ -378,7 +382,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>
-              Hay <strong>{pedidosVencidosCount} pedido(s)</strong> sin pagar hace 5+ días.
+              Hay <strong>{pedidosVencidosCount} pedido(s)</strong> sin pagar hace {config.diasToleranciaPendientePago}+ días.
             </span>
           </Link>
         )}

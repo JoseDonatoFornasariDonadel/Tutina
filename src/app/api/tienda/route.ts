@@ -18,6 +18,8 @@ export async function GET(request: Request) {
 
   const whereClause: Prisma.ProductoWhereInput = {
     fechaHoraBajaProd: null,
+    // Las prendas marcadas como "No mostrar" quedan fuera de la tienda pública
+    visibleEnTiendaOnline: true,
     ...(q
       ? {
           OR: [
