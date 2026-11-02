@@ -13,6 +13,7 @@ import {
   BellRing,
 } from 'lucide-react';
 import { useAppConfig } from '@/components/layout/AppShell';
+import { comprimirImagen } from '@/lib/comprimirImagen';
 
 export default function ConfiguracionPage() {
   const { config, refreshGlobalState } = useAppConfig();
@@ -56,16 +57,12 @@ export default function ConfiguracionPage() {
   }, [config]);
 
   // Permite subir un archivo de imagen local desde la computadora de la dueña
-  const handleSubirArchivoLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSubirArchivoLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setForm((prev) => ({ ...prev, logoUrl: reader.result as string }));
-      }
-    };
-    reader.readAsDataURL(file);
+    // El logo se muestra chico: alcanza con 800 px. Las SVG se guardan sin cambios.
+    const dataUrl = await comprimirImagen(file, { maxLado: 800, calidad: 0.9 });
+    setForm((prev) => ({ ...prev, logoUrl: dataUrl }));
   };
 
   const handleGuardarConfig = async (e: React.FormEvent) => {

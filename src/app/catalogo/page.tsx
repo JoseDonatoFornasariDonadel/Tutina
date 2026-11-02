@@ -33,6 +33,7 @@ import {
   obtenerPorcentajeDescuentoVigente,
 } from '@/lib/services/pricing.service';
 import { useAppConfig } from '@/components/layout/AppShell';
+import { comprimirImagen } from '@/lib/comprimirImagen';
 
 const PRENDAS_POR_PAGINA = 12;
 
@@ -296,41 +297,51 @@ export default function CatalogoPage() {
     ]);
   };
 
-  const handleSubirImagenVarianteNueva = (idx: number, file?: File) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        const dataUrl = reader.result;
-        setListaVariantesNuevas((prev) => {
-          const copia = [...prev];
-          copia[idx] = { ...copia[idx], imagenVariante: dataUrl };
-          return copia;
-        });
-        if (idx === 0) {
-          setNuevoProdForm((prev) => ({ ...prev, imagen: dataUrl }));
-        }
-      }
-    };
-    reader.readAsDataURL(file);
+  // Las fotos se comprimen en el navegador antes de guardarlas (ver comprimirImagen)
+  const [comprimiendoImagen, setComprimiendoImagen] = useState(false);
+
+  const prepararImagen = async (file: File): Promise<string | null> => {
+    setComprimiendoImagen(true);
+    try {
+      return await comprimirImagen(file);
+    } catch {
+      alert('No se pudo procesar la imagen. Probá con otro archivo.');
+      return null;
+    } finally {
+      setComprimiendoImagen(false);
+    }
   };
 
-  const handleSubirImagenVarianteEdicion = (idx: number, file?: File) => {
+  const handleSubirImagenVarianteNueva = async (idx: number, file?: File) => {
+    if (!file) return;
+    const dataUrl = await prepararImagen(file);
+    if (!dataUrl) return;
+    setListaVariantesNuevas((prev) => {
+      const copia = [...prev];
+      if (copia[idx]) copia[idx] = { ...copia[idx], imagenVariante: dataUrl };
+      return copia;
+    });
+    if (idx === 0) {
+      setNuevoProdForm((prev) => ({ ...prev, imagen: dataUrl }));
+    }
+  };
+
+  const handleSubirImagenVarianteEdicion = async (idx: number, file?: File) => {
     if (!file || !productoEditando) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        const dataUrl = reader.result;
-        const nuevas = [...productoEditando.variantes];
-        nuevas[idx] = { ...nuevas[idx], imagenVariante: dataUrl };
-        setProductoEditando({
-          ...productoEditando,
-          imagen: idx === 0 ? dataUrl : productoEditando.imagen,
-          variantes: nuevas as ProductoCat['variantes'],
-        });
-      }
-    };
-    reader.readAsDataURL(file);
+    const dataUrl = await prepararImagen(file);
+    if (!dataUrl) return;
+    // Actualización funcional: el formulario pudo cambiar mientras se comprimía la foto
+    setProductoEditando((prev) => {
+      if (!prev) return prev;
+      const nuevas = [...prev.variantes];
+      if (!nuevas[idx]) return prev;
+      nuevas[idx] = { ...nuevas[idx], imagenVariante: dataUrl };
+      return {
+        ...prev,
+        imagen: idx === 0 ? dataUrl : prev.imagen,
+        variantes: nuevas as ProductoCat['variantes'],
+      };
+    });
   };
 
   const handleCrearMarcaApartado = async (e: React.FormEvent) => {
@@ -1809,10 +1820,14 @@ export default function CatalogoPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={guardando}
+                  disabled={guardando || comprimiendoImagen}
                   className="px-5 py-2 rounded-xl bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 transition cursor-pointer disabled:opacity-50"
                 >
-                  {guardando ? 'Guardando...' : 'Guardar Cambios de la Prenda'}
+                  {comprimiendoImagen
+                    ? 'Procesando foto...'
+                    : guardando
+                    ? 'Guardando...'
+                    : 'Guardar Cambios de la Prenda'}
                 </button>
               </div>
             </form>
@@ -2381,10 +2396,12 @@ export default function CatalogoPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={guardando}
-                  className="px-5 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 cursor-pointer shadow-xs"
+                  disabled={guardando || comprimiendoImagen}
+                  className="px-5 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 cursor-pointer shadow-xs disabled:opacity-50"
                 >
-                  {guardando
+                  {comprimiendoImagen
+                    ? 'Procesando foto...'
+                    : guardando
                     ? 'Creando Prenda...'
                     : `Crear Prenda con ${listaVariantesNuevas.length} Variante(s)`}
                 </button>
