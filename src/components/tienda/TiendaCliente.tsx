@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { LogoDual } from '@/components/LogoDual';
 import {
   Search,
   ShoppingBag,
@@ -65,6 +66,7 @@ interface ProductoPublico {
 interface TiendaPublicaInfo {
   nombreComercial: string;
   logoUrl: string;
+  logoDarkUrl?: string | null;
   slogan: string;
   telefonoWhatsApp: string;
   direccionComercial?: string | null;
@@ -528,18 +530,11 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
             </button>
 
             <div className="h-9 sm:h-12 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={tienda.logoUrl || '/tutina-logo.svg'}
+              <LogoDual
+                logoUrl={tienda.logoUrl}
+                logoDarkUrl={tienda.logoDarkUrl}
                 alt={tienda.nombreComercial}
-                className={`h-6 sm:h-9 max-h-9 w-auto object-contain ${
-                  darkMode && tienda.logoUrl?.includes('tutina-logo')
-                    ? 'brightness-110 invert hue-rotate-180'
-                    : ''
-                }`}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/tutina-logo.svg';
-                }}
+                className="h-6 sm:h-9 max-h-9 w-auto object-contain"
               />
             </div>
             <div className="hidden lg:block truncate">

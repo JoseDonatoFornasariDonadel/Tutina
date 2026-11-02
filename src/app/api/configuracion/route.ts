@@ -27,6 +27,7 @@ export async function PUT(request: Request) {
     const data = {
       nombreComercial: body.nombreComercial ?? 'Tutina',
       logoUrl: body.logoUrl || '/tutina-logo.svg',
+      logoDarkUrl: typeof body.logoDarkUrl === 'string' && body.logoDarkUrl.trim() ? body.logoDarkUrl.trim() : null,
       slogan: body.slogan ?? 'Indumentaria Deportiva & Urbana',
       telefonoWhatsAppNotificaciones: body.telefonoWhatsAppNotificaciones ?? '+5493516543210',
       whatsappWebhookUrl: body.whatsappWebhookUrl || null,

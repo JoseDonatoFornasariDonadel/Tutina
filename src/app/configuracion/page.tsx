@@ -11,15 +11,23 @@ import {
   Sparkles,
   Percent,
   BellRing,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { useAppConfig } from '@/components/layout/AppShell';
 import { comprimirImagen } from '@/lib/comprimirImagen';
+import { LOGOS_PREDEFINIDOS, resolverLogos } from '@/lib/logos';
+
+type ModoLogo = 'claro' | 'oscuro';
 
 export default function ConfiguracionPage() {
-  const { config, refreshGlobalState, darkMode } = useAppConfig();
+  const { config, refreshGlobalState } = useAppConfig();
+  // Pestaña activa de la tarjeta de logo: define qué logo se edita
+  const [modoLogo, setModoLogo] = useState<ModoLogo>('claro');
   const [form, setForm] = useState({
     nombreComercial: 'Tutina',
     logoUrl: '/tutina-logo.svg',
+    logoDarkUrl: '',
     slogan: 'Indumentaria Deportiva & Urbana',
     telefonoWhatsAppNotificaciones: '+5493516543210',
     whatsappWebhookUrl: '',
@@ -40,6 +48,7 @@ export default function ConfiguracionPage() {
       setForm({
         nombreComercial: config.nombreComercial || 'Tutina',
         logoUrl: config.logoUrl || '/tutina-logo.svg',
+        logoDarkUrl: config.logoDarkUrl || '',
         slogan: config.slogan || '',
         telefonoWhatsAppNotificaciones: config.telefonoWhatsAppNotificaciones || '',
         whatsappWebhookUrl: config.whatsappWebhookUrl || '',
@@ -62,8 +71,18 @@ export default function ConfiguracionPage() {
     if (!file) return;
     // El logo se muestra chico: alcanza con 800 px. Las SVG se guardan sin cambios.
     const dataUrl = await comprimirImagen(file, { maxLado: 800, calidad: 0.9 });
-    setForm((prev) => ({ ...prev, logoUrl: dataUrl }));
+    const campo = modoLogo === 'claro' ? 'logoUrl' : 'logoDarkUrl';
+    setForm((prev) => ({ ...prev, [campo]: dataUrl }));
+    // Permite volver a elegir el mismo archivo para el otro modo
+    e.target.value = '';
   };
+
+  // Logo que se edita en la pestaña activa y logos que verá el cliente en cada modo
+  const campoLogoActivo = modoLogo === 'claro' ? 'logoUrl' : 'logoDarkUrl';
+  const valorLogoActivo = form[campoLogoActivo];
+  const logosResueltos = resolverLogos(form.logoUrl, form.logoDarkUrl);
+  const logoVistaPrevia = modoLogo === 'claro' ? logosResueltos.claro : logosResueltos.oscuro;
+  const logoOscuroAutomatico = modoLogo === 'oscuro' && !form.logoDarkUrl.trim();
 
   const handleGuardarConfig = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,60 +133,103 @@ export default function ConfiguracionPage() {
             <ImageIcon className="w-5 h-5 text-rose-600" /> Logo Dinámico de la Página
           </h2>
 
-          {/* Previsualización en Vivo */}
-          <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col items-center justify-center space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Vista Previa Actual en Header & Tienda Online
+          {/* Pestañas: logo para modo claro / modo oscuro */}
+          <div
+            role="tablist"
+            aria-label="Modo del logo"
+            className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200"
+          >
+            {(
+              [
+                { id: 'claro', etiqueta: 'Modo Claro', Icono: Sun },
+                { id: 'oscuro', etiqueta: 'Modo Oscuro', Icono: Moon },
+              ] as const
+            ).map(({ id, etiqueta, Icono }) => {
+              const activo = modoLogo === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activo}
+                  onClick={() => setModoLogo(id)}
+                  className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold cursor-pointer transition ${
+                    activo
+                      ? 'bg-white text-rose-700 border border-rose-200 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800 border border-transparent'
+                  }`}
+                >
+                  <Icono className="w-3.5 h-3.5" /> {etiqueta}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Previsualización en Vivo: fondo fijo del modo elegido, sin importar el tema del panel */}
+          <div
+            className={`p-5 rounded-2xl border flex flex-col items-center justify-center space-y-2 ${
+              modoLogo === 'claro'
+                ? 'bg-[#ffffff] border-[#e2e8f0]'
+                : 'bg-[#09090b] border-[#27272a]'
+            }`}
+          >
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wider ${
+                modoLogo === 'claro' ? 'text-[#94a3b8]' : 'text-[#8b8b94]'
+              }`}
+            >
+              Vista previa • {modoLogo === 'claro' ? 'Modo Claro' : 'Modo Oscuro'}
             </span>
             <div className="h-20 flex items-center justify-center px-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={form.logoUrl || '/tutina-logo.svg'}
-                alt="Logo Preview"
-                className={`max-h-16 w-auto object-contain ${
-                  darkMode && (form.logoUrl || '/tutina-logo.svg').includes('tutina-logo')
-                    ? 'brightness-110 invert hue-rotate-180'
-                    : ''
-                }`}
+                src={logoVistaPrevia}
+                alt={`Logo ${modoLogo === 'claro' ? 'modo claro' : 'modo oscuro'}`}
+                className="max-h-16 w-auto object-contain"
               />
             </div>
           </div>
+          {logoOscuroAutomatico && (
+            <p className="text-[11px] text-slate-500 -mt-2">
+              No cargaste un logo oscuro: se usa{' '}
+              {logosResueltos.oscuro === logosResueltos.claro
+                ? 'el mismo logo del modo claro.'
+                : 'automáticamente la versión oscura del estilo oficial.'}
+            </p>
+          )}
 
           {/* Selector de Logos Predefinidos de Tutina */}
           <div className="space-y-2">
             <label className="block text-xs font-semibold text-slate-700">
-              Estilos Oficiales Predefinidos:
+              Estilos Oficiales Predefinidos ({modoLogo === 'claro' ? 'modo claro' : 'modo oscuro'}):
             </label>
             <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, logoUrl: '/tutina-logo.svg' })}
-                className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition ${
-                  form.logoUrl === '/tutina-logo.svg'
-                    ? 'border-rose-500 bg-rose-50 text-rose-800'
-                    : 'border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                Tutina Active (Rosa/Violeta)
-              </button>
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, logoUrl: '/tutina-logo-alt.svg' })}
-                className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition ${
-                  form.logoUrl === '/tutina-logo-alt.svg'
-                    ? 'border-rose-500 bg-rose-50 text-rose-800'
-                    : 'border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                Tutina Boutique (Dark/Serif)
-              </button>
+              {LOGOS_PREDEFINIDOS.map((logo) => {
+                const url = modoLogo === 'claro' ? logo.claro : logo.oscuro;
+                const seleccionado = valorLogoActivo === url;
+                return (
+                  <button
+                    key={logo.id}
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, [campoLogoActivo]: url }))}
+                    className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition ${
+                      seleccionado
+                        ? 'border-rose-500 bg-rose-50 text-rose-800'
+                        : 'border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    {logo.nombre}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Subir Imagen Local desde la PC */}
           <div className="space-y-2">
             <label className="block text-xs font-semibold text-slate-700">
-              Subir Nuevo Archivo de Logo (PNG, SVG, JPG):
+              Subir Nuevo Archivo de Logo para {modoLogo === 'claro' ? 'Modo Claro' : 'Modo Oscuro'}{' '}
+              (PNG, SVG, JPG):
             </label>
             <label className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl border-2 border-dashed border-rose-300 bg-rose-50/40 text-xs font-bold text-rose-700 hover:bg-rose-50 cursor-pointer transition">
               <Upload className="w-4 h-4" /> Seleccionar imagen desde mi equipo
@@ -183,14 +245,29 @@ export default function ConfiguracionPage() {
           {/* O pegar URL externa */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              O URL directa de imagen del logo:
+              O URL directa de imagen del logo ({modoLogo === 'claro' ? 'modo claro' : 'modo oscuro'}):
             </label>
             <input
               type="text"
-              value={form.logoUrl}
-              onChange={(e) => setForm({ ...form, logoUrl: e.target.value })}
+              value={valorLogoActivo}
+              placeholder={
+                modoLogo === 'oscuro' ? 'Vacío = se elige automáticamente' : '/tutina-logo.svg'
+              }
+              onChange={(e) => {
+                const valor = e.target.value;
+                setForm((prev) => ({ ...prev, [campoLogoActivo]: valor }));
+              }}
               className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200"
             />
+            {modoLogo === 'oscuro' && form.logoDarkUrl.trim() && (
+              <button
+                type="button"
+                onClick={() => setForm((prev) => ({ ...prev, logoDarkUrl: '' }))}
+                className="mt-1.5 text-[11px] font-semibold text-slate-500 hover:text-rose-600 cursor-pointer"
+              >
+                Quitar logo oscuro y usar el automático
+              </button>
+            )}
           </div>
         </div>
 

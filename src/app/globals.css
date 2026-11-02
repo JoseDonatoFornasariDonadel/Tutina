@@ -174,11 +174,6 @@ html.dark select option {
   color: var(--dk-texto);
 }
 
-/* Logo por defecto (texto oscuro): se invierte para que se lea sobre fondo oscuro */
-html.dark .dm-logo-invertible {
-  filter: brightness(1.1) invert(1) hue-rotate(180deg);
-}
-
 /* Interruptor (switch): la perilla queda clara para distinguirse del riel */
 html.dark .dm-switch-perilla {
   background-color: #f4f4f5 !important;
