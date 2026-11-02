@@ -1,90 +1,129 @@
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 
-export async function GET() {
-  const config = await prisma.configuracionTienda.findFirst();
-  const umbralGlobal = config?.umbralAlertaStockDefault ?? 3;
-  const diasTolerancia = config?.diasToleranciaPendientePago ?? 5;
-  const contarDesde =
-    config?.alertaPagoContarDesde === 'CAMBIO_ESTADO' ? 'CAMBIO_ESTADO' : 'FECHA_PEDIDO';
+// Rendimiento: todas las consultas usan `select` con solo los campos que muestra la
+// página. Antes se traían las prendas completas, incluida la foto en base64 (varios MB
+// por prenda), en el historial de alertas, el stock crítico y el detalle de cada pedido.
 
+const NOMBRE_ESTADO_PENDIENTE_PAGO = 'Entregado y pendiente de pago';
+
+const selectVarianteCritica = {
+  codVariante: true,
+  sku: true,
+  stock: true,
+  alertaStockEnviada: true,
+  producto: {
+    select: {
+      nombre: true,
+      marca: { select: { nombreMarca: true } },
+      proveedorHabitual: { select: { nombreProveedor: true, numeroProveedor: true } },
+    },
+  },
+  talle: { select: { nombreTalle: true } },
+  color: { select: { nombreColor: true, codigoHex: true } },
+} satisfies Prisma.VarianteProductoSelect;
+
+const selectAlertaLog = {
+  idAlerta: true,
+  fechaDisparo: true,
+  telefonoDestino: true,
+  mensajeEnviado: true,
+  stockRemanente: true,
+  estadoEnvio: true,
+  origenDisparo: true,
+  variante: {
+    select: {
+      sku: true,
+      producto: { select: { nombre: true } },
+      talle: { select: { nombreTalle: true } },
+      color: { select: { nombreColor: true } },
+    },
+  },
+} satisfies Prisma.AlertaWhatsAppLogSelect;
+
+async function obtenerEstadoPendientePago() {
   // Asegurar que exista el estado "Entregado y pendiente de pago"
-  let estadoEntregadoPendiente = await prisma.estadoPedido.findFirst({
-    where: {
-      nombreEP: 'Entregado y pendiente de pago',
-      fechaHoraBajaEP: null,
+  const existente = await prisma.estadoPedido.findFirst({
+    where: { nombreEP: NOMBRE_ESTADO_PENDIENTE_PAGO, fechaHoraBajaEP: null },
+  });
+  if (existente) return existente;
+  return prisma.estadoPedido.create({
+    data: {
+      nombreEP: NOMBRE_ESTADO_PENDIENTE_PAGO,
+      colorBadge: 'amber',
+      reservaStock: true,
+      liberaStock: false,
+      impactaEnReportesVenta: true,
     },
   });
+}
 
-  if (!estadoEntregadoPendiente) {
-    estadoEntregadoPendiente = await prisma.estadoPedido.create({
-      data: {
-        nombreEP: 'Entregado y pendiente de pago',
-        colorBadge: 'amber',
-        reservaStock: true,
-        liberaStock: false,
-        impactaEnReportesVenta: true,
+/**
+ * Pedidos en "Entregado y pendiente de pago" con saldo, ya evaluados contra la tolerancia.
+ * La base filtra por estado y descarta los pedidos totalmente pagados (totalPagado < total);
+ * el cálculo de días y saldo es el mismo de siempre y se aplica igual a cada pedido.
+ */
+async function obtenerPedidosPendientes(
+  codEP: number,
+  diasTolerancia: number,
+  contarDesde: 'FECHA_PEDIDO' | 'CAMBIO_ESTADO',
+  incluirDetalle: boolean
+) {
+  const pedidosEnPendientePago = await prisma.pedido.findMany({
+    where: {
+      codEstadoActual: codEP,
+      // Pre-filtro en la base: solo pedidos que todavía deben algo. Es más amplio que el
+      // filtro final (saldoPendiente > 0), que se sigue aplicando abajo.
+      totalPagado: { lt: prisma.pedido.fields.total },
+    },
+    select: {
+      nroPedido: true,
+      fechaPedido: true,
+      codEstadoActual: true,
+      total: true,
+      totalPagado: true,
+      observaciones: true,
+      // Solo los registros de historial del estado actual: son los únicos que se usan
+      historialEstados: {
+        where: { codEP },
+        select: { codEP: true, fechaInicioPE: true, fechaFinPE: true },
+        orderBy: { fechaInicioPE: 'desc' },
       },
-    });
-  }
-
-  const [alertasLog, variantesCriticas, pedidosEnPendientePago, estadosActivos] = await Promise.all([
-    prisma.alertaWhatsAppLog.findMany({
-      include: {
-        variante: {
-          include: {
-            producto: { include: { marca: true, proveedorHabitual: true } },
-            talle: true,
-            color: true,
-          },
-        },
-      },
-      orderBy: { fechaDisparo: 'desc' },
-      take: 50,
-    }),
-    prisma.varianteProducto.findMany({
-      where: {
-        fechaHoraBajaVar: null,
-        stock: { lt: umbralGlobal },
-      },
-      include: {
-        producto: {
-          include: { marca: true, categoria: true, proveedorHabitual: true },
-        },
-        talle: true,
-        color: true,
-      },
-      orderBy: { stock: 'asc' },
-    }),
-    prisma.pedido.findMany({
-      where: {
-        codEstadoActual: estadoEntregadoPendiente.codEP,
-      },
-      include: {
-        cliente: true,
-        estadoActual: true,
-        historialEstados: {
-          include: { estadoPedido: true },
-          orderBy: { fechaInicioPE: 'desc' },
-        },
-        detallesPedido: {
-          include: {
-            variante: {
-              include: {
-                producto: { include: { marca: true } },
-                talle: true,
-                color: true,
+      ...(incluirDetalle
+        ? {
+            cliente: {
+              select: {
+                codCliente: true,
+                nombreCliente: true,
+                apellidoCliente: true,
+                telefonoCliente: true,
+                emailCliente: true,
               },
             },
-          },
-        },
-      },
-      orderBy: { fechaPedido: 'asc' },
-    }),
-    prisma.estadoPedido.findMany({
-      where: { fechaHoraBajaEP: null },
-    }),
-  ]);
+            estadoActual: { select: { codEP: true, nombreEP: true } },
+            detallesPedido: {
+              select: {
+                idDetallePedido: true,
+                Cantidad: true,
+                subtotal: true,
+                variante: {
+                  select: {
+                    sku: true,
+                    producto: {
+                      select: { nombre: true, marca: { select: { nombreMarca: true } } },
+                    },
+                    talle: { select: { nombreTalle: true } },
+                    color: { select: { nombreColor: true } },
+                  },
+                },
+              },
+            },
+          }
+        : {}),
+    },
+    orderBy: { fechaPedido: 'asc' },
+  });
 
   const ahora = new Date();
   const msPorDia = 1000 * 60 * 60 * 24;
@@ -127,9 +166,13 @@ export async function GET() {
       totalPagado,
       saldoPendiente,
       observaciones: pedido.observaciones,
-      cliente: pedido.cliente,
-      estadoActual: pedido.estadoActual,
-      detallesPedido: pedido.detallesPedido,
+      ...(incluirDetalle
+        ? {
+            cliente: pedido.cliente,
+            estadoActual: pedido.estadoActual,
+            detallesPedido: pedido.detallesPedido,
+          }
+        : {}),
     };
   });
 
@@ -144,6 +187,59 @@ export async function GET() {
   const pedidosPendientesEnPlazo = pedidosConSaldo
     .filter((p) => p.diasEnEstado < diasTolerancia)
     .sort((a, b) => b.diasEnEstado - a.diasEnEstado);
+
+  return { pedidosPendientesVencidos, pedidosPendientesEnPlazo };
+}
+
+export async function GET(request: Request) {
+  // ?resumen=1 → solo los contadores (lo usa el menú lateral en cada cambio de página)
+  const soloResumen = new URL(request.url).searchParams.get('resumen') === '1';
+
+  const [config, estadoEntregadoPendiente] = await Promise.all([
+    prisma.configuracionTienda.findFirst(),
+    obtenerEstadoPendientePago(),
+  ]);
+  const umbralGlobal = config?.umbralAlertaStockDefault ?? 3;
+  const diasTolerancia = config?.diasToleranciaPendientePago ?? 5;
+  const contarDesde =
+    config?.alertaPagoContarDesde === 'CAMBIO_ESTADO' ? 'CAMBIO_ESTADO' : 'FECHA_PEDIDO';
+
+  const filtroStockCritico = {
+    fechaHoraBajaVar: null,
+    stock: { lt: umbralGlobal },
+  } satisfies Prisma.VarianteProductoWhereInput;
+
+  if (soloResumen) {
+    const [cantidadVariantesCriticas, pedidos] = await Promise.all([
+      prisma.varianteProducto.count({ where: filtroStockCritico }),
+      obtenerPedidosPendientes(estadoEntregadoPendiente.codEP, diasTolerancia, contarDesde, false),
+    ]);
+    return NextResponse.json({
+      cantidadVariantesCriticas,
+      cantidadPedidosPendientesVencidos: pedidos.pedidosPendientesVencidos.length,
+      umbralGlobal,
+      umbralDiasPendientePago: diasTolerancia,
+    });
+  }
+
+  const [alertasLog, variantesCriticas, pedidos, estadosActivos] = await Promise.all([
+    prisma.alertaWhatsAppLog.findMany({
+      select: selectAlertaLog,
+      orderBy: { fechaDisparo: 'desc' },
+      take: 50,
+    }),
+    prisma.varianteProducto.findMany({
+      where: filtroStockCritico,
+      select: selectVarianteCritica,
+      orderBy: { stock: 'asc' },
+    }),
+    obtenerPedidosPendientes(estadoEntregadoPendiente.codEP, diasTolerancia, contarDesde, true),
+    prisma.estadoPedido.findMany({
+      where: { fechaHoraBajaEP: null },
+      select: { codEP: true, nombreEP: true },
+    }),
+  ]);
+  const { pedidosPendientesVencidos, pedidosPendientesEnPlazo } = pedidos;
 
   const estadoPagado = estadosActivos.find(
     (e) =>

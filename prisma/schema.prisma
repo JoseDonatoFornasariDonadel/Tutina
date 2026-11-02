@@ -260,7 +260,8 @@ model Pedido {
   formasPago           PedidoFormaPago[]
 
   @@index([codCliente])
-  @@index([codEstadoActual])
+  // Alertas de cobro: pedidos por estado, ordenados por fecha
+  @@index([codEstadoActual, fechaPedido])
 }
 
 model DetallePedido {
@@ -290,7 +291,8 @@ model PedidoEstado {
   pedido         Pedido       @relation(fields: [nroPedido], references: [nroPedido])
   estadoPedido   EstadoPedido @relation(fields: [codEP], references: [codEP])
 
-  @@index([nroPedido])
+  // Alertas de cobro: historial de un pedido en un estado puntual
+  @@index([nroPedido, codEP])
   @@index([codEP])
 }
 
@@ -359,4 +361,7 @@ model AlertaWhatsAppLog {
   variante          VarianteProducto @relation(fields: [codVariante], references: [codVariante])
 
   @@index([codVariante])
+  // Historial de alertas (últimas 50) y marcado como leídas
+  @@index([fechaDisparo])
+  @@index([leidaEnPanel])
 }
