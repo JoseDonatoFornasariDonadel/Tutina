@@ -1,7 +1,13 @@
 export const ADMIN_COOKIE_NAME = 'tutina_admin_session';
 
 function getSecret(): string {
-  return process.env.TUTINA_SESSION_SECRET || 'tutina-secret-key-2026-indumentaria-protegida';
+  const secret = process.env.TUTINA_SESSION_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error(
+      'Falta la variable de entorno TUTINA_SESSION_SECRET (mínimo 32 caracteres).'
+    );
+  }
+  return secret;
 }
 
 async function hmacSha256Hex(message: string, secret: string): Promise<string> {
@@ -38,6 +44,21 @@ export async function verificarTokenSesionAdmin(token?: string | null): Promise<
   }
 
   const payload = `${usuario}.${expStr}`;
-  const firmaEsperada = await hmacSha256Hex(payload, getSecret());
-  return firmaRecibida === firmaEsperada;
+  let firmaEsperada: string;
+  try {
+    firmaEsperada = await hmacSha256Hex(payload, getSecret());
+  } catch {
+    return false;
+  }
+  return compararSeguro(firmaRecibida, firmaEsperada);
+}
+
+// Comparación en tiempo constante para no filtrar información por tiempos de respuesta
+export function compararSeguro(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
 }

@@ -4,6 +4,7 @@ import {
   ADMIN_COOKIE_NAME,
   generarTokenSesionAdmin,
   verificarTokenSesionAdmin,
+  compararSeguro,
 } from '@/lib/auth';
 
 export async function GET() {
@@ -19,12 +20,23 @@ export async function POST(request: Request) {
     const usuarioIngresado = String(body.usuario || '').trim();
     const passwordIngresada = String(body.password || '').trim();
 
-    const adminUserEsperado = (process.env.TUTINA_ADMIN_USER || 'AnaDonadel').trim();
-    const adminPassEsperada = (process.env.TUTINA_ADMIN_PASSWORD || 'Ana211267').trim();
+    const adminUserEsperado = (process.env.TUTINA_ADMIN_USER || '').trim();
+    const adminPassEsperada = (process.env.TUTINA_ADMIN_PASSWORD || '').trim();
+    const secretoConfigurado = (process.env.TUTINA_SESSION_SECRET || '').length >= 32;
+
+    if (!adminUserEsperado || !adminPassEsperada || !secretoConfigurado) {
+      console.error(
+        'Login deshabilitado: faltan TUTINA_ADMIN_USER, TUTINA_ADMIN_PASSWORD o TUTINA_SESSION_SECRET.'
+      );
+      return NextResponse.json(
+        { error: 'El acceso de administración no está configurado en el servidor.' },
+        { status: 503 }
+      );
+    }
 
     const usuarioValido =
       usuarioIngresado.toLowerCase() === adminUserEsperado.toLowerCase();
-    const passwordValida = passwordIngresada === adminPassEsperada;
+    const passwordValida = compararSeguro(passwordIngresada, adminPassEsperada);
 
     if (!usuarioValido || !passwordValida) {
       return NextResponse.json(
