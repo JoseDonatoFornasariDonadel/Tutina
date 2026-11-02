@@ -52,7 +52,7 @@ function LoginFormContent() {
             <img
               src="/tutina-logo.svg"
               alt="Tutina"
-              className="max-h-10 w-auto object-contain"
+              className="dm-logo-invertible max-h-10 w-auto object-contain"
             />
           </div>
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[11px] font-bold border border-rose-200">

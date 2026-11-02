@@ -8,6 +8,16 @@ export const metadata: Metadata = {
     'Sistema integral de gestión de catálogo, costos, markup, pedidos, alertas de stock por WhatsApp y reportes financieros de Tutina.',
 };
 
+const aplicarTemaGuardadoScript = `
+(function() {
+  try {
+    if (localStorage.getItem('tutina_dark_mode') === 'true') {
+      document.documentElement.classList.add('dark');
+    }
+  } catch (e) {}
+})();
+`;
+
 const stripExtensionAttributesScript = `
 (function() {
   try {
@@ -67,6 +77,8 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
+        {/* Aplica el modo oscuro guardado antes de pintar, para evitar el destello claro */}
+        <script dangerouslySetInnerHTML={{ __html: aplicarTemaGuardadoScript }} />
         <script dangerouslySetInnerHTML={{ __html: stripExtensionAttributesScript }} />
       </head>
       <body suppressHydrationWarning>
