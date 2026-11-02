@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-const UMBRAL_DIAS_PENDIENTE_PAGO = 5;
-
 export async function GET() {
   const config = await prisma.configuracionTienda.findFirst();
   const umbralGlobal = config?.umbralAlertaStockDefault ?? 3;
+  const diasTolerancia = config?.diasToleranciaPendientePago ?? 5;
+  const contarDesde =
+    config?.alertaPagoContarDesde === 'CAMBIO_ESTADO' ? 'CAMBIO_ESTADO' : 'FECHA_PEDIDO';
 
   // Asegurar que exista el estado "Entregado y pendiente de pago"
   let estadoEntregadoPendiente = await prisma.estadoPedido.findFirst({
@@ -88,34 +89,34 @@ export async function GET() {
   const ahora = new Date();
   const msPorDia = 1000 * 60 * 60 * 24;
 
+  // La alerta se reevalúa en cada consulta (no se guarda ningún flag), así que un pedido
+  // viejo que recién pasa a "Entregado y pendiente de pago" se evalúa igual que el resto.
   const pedidosConAntiguedad = pedidosEnPendientePago.map((pedido) => {
-    const estadoVigente =
-      pedido.historialEstados.find(
-        (h) => h.codEP === pedido.codEstadoActual && h.fechaFinPE === null
-      ) ||
-      pedido.historialEstados.find((h) => h.codEP === pedido.codEstadoActual) ||
-      pedido.historialEstados[0];
-
     const fechaPedidoDate = new Date(pedido.fechaPedido);
-    const fechaEstadoDate = estadoVigente
+
+    // Fecha en la que entró al estado actual: el registro de historial abierto más reciente
+    // de ese estado. Si el pedido no tiene historial, se usa la fecha del pedido.
+    const registrosDelEstado = pedido.historialEstados
+      .filter((h) => h.codEP === pedido.codEstadoActual)
+      .sort((a, b) => new Date(b.fechaInicioPE).getTime() - new Date(a.fechaInicioPE).getTime());
+    const estadoVigente =
+      registrosDelEstado.find((h) => h.fechaFinPE === null) || registrosDelEstado[0];
+    const fechaInicioEstado = estadoVigente
       ? new Date(estadoVigente.fechaInicioPE)
       : fechaPedidoDate;
 
-    // Si fue creado directamente en este estado, tomamos la menor entre fechaPedido y fechaInicioPE
-    const fechaInicioEstado =
-      pedido.historialEstados.length <= 1 && fechaPedidoDate < fechaEstadoDate
-        ? fechaPedidoDate
-        : fechaEstadoDate;
+    const fechaReferencia = contarDesde === 'FECHA_PEDIDO' ? fechaPedidoDate : fechaInicioEstado;
 
     const diasEnEstado = Math.max(
       0,
-      Math.floor((ahora.getTime() - fechaInicioEstado.getTime()) / msPorDia)
+      Math.floor((ahora.getTime() - fechaReferencia.getTime()) / msPorDia)
     );
 
     return {
       nroPedido: pedido.nroPedido,
       fechaPedido: pedido.fechaPedido,
       fechaInicioEstado: fechaInicioEstado.toISOString(),
+      fechaReferencia: fechaReferencia.toISOString(),
       diasEnEstado,
       total: pedido.total,
       observaciones: pedido.observaciones,
@@ -125,13 +126,13 @@ export async function GET() {
     };
   });
 
-  // Filtrar los que llevan 5 días o más en estado "Entregado y pendiente de pago"
+  // Filtrar los que superan los días de tolerancia configurados
   const pedidosPendientesVencidos = pedidosConAntiguedad
-    .filter((p) => p.diasEnEstado >= UMBRAL_DIAS_PENDIENTE_PAGO)
+    .filter((p) => p.diasEnEstado >= diasTolerancia)
     .sort((a, b) => b.diasEnEstado - a.diasEnEstado);
 
   const pedidosPendientesEnPlazo = pedidosConAntiguedad
-    .filter((p) => p.diasEnEstado < UMBRAL_DIAS_PENDIENTE_PAGO)
+    .filter((p) => p.diasEnEstado < diasTolerancia)
     .sort((a, b) => b.diasEnEstado - a.diasEnEstado);
 
   const estadoPagado = estadosActivos.find(
@@ -145,7 +146,8 @@ export async function GET() {
     variantesCriticas,
     pedidosPendientesVencidos,
     pedidosPendientesEnPlazo,
-    umbralDiasPendientePago: UMBRAL_DIAS_PENDIENTE_PAGO,
+    umbralDiasPendientePago: diasTolerancia,
+    alertaPagoContarDesde: contarDesde,
     codEstadoPagado: estadoPagado?.codEP ?? null,
     umbralGlobal,
     telefonoDestino: config?.telefonoWhatsAppNotificaciones ?? '+5493516543210',

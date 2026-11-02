@@ -36,6 +36,7 @@ interface PedidoPendienteAlerta {
   nroPedido: number;
   fechaPedido: string;
   fechaInicioEstado: string;
+  fechaReferencia?: string;
   diasEnEstado: number;
   total: number;
   observaciones?: string | null;
@@ -131,7 +132,7 @@ export default function AlertasWhatsAppPage() {
         body: JSON.stringify({
           nroPedido,
           nuevoCodEP: codEstadoPagado,
-          motivoCambio: 'Cobro registrado desde panel de Alertas (5+ días pendiente)',
+          motivoCambio: `Cobro registrado desde panel de Alertas (${umbralDiasPendientePago}+ días pendiente)`,
         }),
       });
       if (res.ok) {
@@ -238,7 +239,7 @@ export default function AlertasWhatsAppPage() {
                   pedido.nroPedido
                 ).padStart(4, '0')} (${resumenPrendas}) por un total de $${pedido.total.toLocaleString(
                   'es-AR'
-                )}, entregado hace ${pedido.diasEnEstado} días. ¡Muchas gracias!`
+                )}, pendiente desde hace ${pedido.diasEnEstado} días. ¡Muchas gracias!`
               );
               const telefonoClienteLimpio = (pedido.cliente.telefonoCliente || '').replace(
                 /[^0-9]/g,
@@ -251,7 +252,7 @@ export default function AlertasWhatsAppPage() {
                   '0'
                 )} de ${nombreCompleto} lleva ${
                   pedido.diasEnEstado
-                } días en estado "Entregado y pendiente de pago" por $${pedido.total.toLocaleString(
+                } días pendiente de pago (estado "Entregado y pendiente de pago") por $${pedido.total.toLocaleString(
                   'es-AR'
                 )}.`
               );
@@ -279,6 +280,11 @@ export default function AlertasWhatsAppPage() {
                           <span className="text-xs font-normal text-slate-500">
                             • Tel: {pedido.cliente.telefonoCliente}
                           </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-1">
+                          Pedido del {new Date(pedido.fechaPedido).toLocaleDateString('es-AR')} •
+                          En este estado desde el{' '}
+                          {new Date(pedido.fechaInicioEstado).toLocaleDateString('es-AR')}
                         </div>
                       </div>
 
