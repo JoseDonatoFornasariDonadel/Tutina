@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { LogoDual } from '@/components/LogoDual';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   ShoppingBag,
@@ -26,6 +27,7 @@ export interface TiendaConfig {
   idConfiguracion: number;
   nombreComercial: string;
   logoUrl: string;
+  logoDarkUrl?: string | null;
   slogan: string;
   telefonoWhatsAppNotificaciones: string;
   whatsappWebhookUrl?: string | null;
@@ -230,18 +232,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className="block group flex-1 min-w-0"
           >
             <div className="h-14 w-full flex items-center justify-start overflow-hidden rounded-xl bg-white px-3 py-1.5 border border-slate-200 group-hover:border-rose-300 transition">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={config.logoUrl || '/tutina-logo.svg'}
+              <LogoDual
+                logoUrl={config.logoUrl}
+                logoDarkUrl={config.logoDarkUrl}
                 alt={config.nombreComercial}
-                className={`h-10 max-h-11 w-auto object-contain ${
-                  darkMode && config.logoUrl?.includes('tutina-logo')
-                    ? 'brightness-110 invert hue-rotate-180'
-                    : ''
-                }`}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/tutina-logo.svg';
-                }}
+                className="h-10 max-h-11 w-auto object-contain"
               />
             </div>
           </Link>
@@ -423,18 +418,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             <Link href="/catalogo" className="shrink-0">
               <div className="h-10 px-2.5 py-1 rounded-xl bg-white border border-slate-200 flex items-center justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={config.logoUrl || '/tutina-logo.svg'}
+                <LogoDual
+                  logoUrl={config.logoUrl}
+                  logoDarkUrl={config.logoDarkUrl}
                   alt={config.nombreComercial}
-                  className={`h-7 max-h-7 w-auto object-contain ${
-                    darkMode && config.logoUrl?.includes('tutina-logo')
-                      ? 'brightness-110 invert hue-rotate-180'
-                      : ''
-                  }`}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/tutina-logo.svg';
-                  }}
+                  className="h-7 max-h-7 w-auto object-contain"
                 />
               </div>
             </Link>

@@ -174,6 +174,7 @@ export async function obtenerVidrieraPublica(filtros: FiltrosVidriera = {}) {
     tienda: {
       nombreComercial: config?.nombreComercial ?? 'Tutina',
       logoUrl: config?.logoUrl ?? '/tutina-logo.svg',
+      logoDarkUrl: config?.logoDarkUrl ?? null,
       slogan: config?.slogan ?? 'Indumentaria Deportiva & Urbana',
       telefonoWhatsApp: config?.telefonoWhatsAppNotificaciones ?? '+5493516543210',
       direccionComercial: config?.direccionComercial ?? null,

@@ -2,6 +2,7 @@
 
 import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
+import { LogoDual } from '@/components/LogoDual';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock, User, Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react';
 
@@ -48,12 +49,7 @@ function LoginFormContent() {
         {/* Cabecera */}
         <div className="p-6 border-b border-slate-100 text-center space-y-2 bg-rose-50/40">
           <div className="h-14 w-36 mx-auto rounded-xl bg-white border border-slate-200 flex items-center justify-center px-3 py-1.5 shadow-2xs">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/tutina-logo.svg"
-              alt="Tutina"
-              className="dm-logo-invertible max-h-10 w-auto object-contain"
-            />
+            <LogoDual alt="Tutina" className="max-h-10 w-auto object-contain" />
           </div>
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[11px] font-bold border border-rose-200">
             <ShieldCheck className="w-3.5 h-3.5" /> Acceso Exclusivo de Administración
