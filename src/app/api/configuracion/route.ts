@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 
 export async function GET() {
@@ -51,6 +52,7 @@ export async function PUT(request: Request) {
         })
       : await prisma.configuracionTienda.create({ data });
 
+    revalidatePath('/tienda');
     return NextResponse.json(actualizado);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Error al actualizar configuración';

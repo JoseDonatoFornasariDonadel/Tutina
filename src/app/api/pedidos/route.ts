@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import {
   cambiarEstadoPedido,
@@ -98,6 +99,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const resultado = await registrarNuevoPedido(body);
+    revalidatePath('/tienda');
     return NextResponse.json(resultado);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Error al registrar el pedido';
@@ -117,6 +119,7 @@ export async function PATCH(request: Request) {
         codFP: body.codFP ? Number(body.codFP) : undefined,
         comprobanteReferencia: body.comprobanteReferencia,
       });
+      revalidatePath('/tienda');
       return NextResponse.json(actualizado);
     }
 
@@ -126,6 +129,7 @@ export async function PATCH(request: Request) {
       Number(nuevoCodEP),
       motivoCambio
     );
+    revalidatePath('/tienda');
     return NextResponse.json(actualizado);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Error al actualizar el pedido';
