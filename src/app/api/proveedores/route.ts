@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { registrarFacturaIngreso } from '@/lib/services/ingresos.service';
 
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
     }
 
     const resultado = await registrarFacturaIngreso(body);
+    revalidatePath('/tienda');
     return NextResponse.json(resultado);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Error al registrar operación de proveedor';
@@ -97,6 +99,7 @@ export async function PUT(request: Request) {
       },
     });
 
+    revalidatePath('/tienda');
     return NextResponse.json(actualizado);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Error al actualizar proveedor';
@@ -117,6 +120,7 @@ export async function DELETE(request: Request) {
       data: { fechaHoraBajaProv: new Date() },
     });
 
+    revalidatePath('/tienda');
     return NextResponse.json({ ok: true });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Error al dar de baja al proveedor';

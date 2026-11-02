@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import {
@@ -150,6 +151,7 @@ export async function PUT(request: Request) {
         where: { codMarca: Number(body.codMarca) },
         data: { nombreMarca: String(body.nombreMarca).trim() },
       });
+      revalidatePath('/tienda');
       return NextResponse.json(marcaAct);
     }
 
@@ -284,6 +286,7 @@ export async function PUT(request: Request) {
       return { producto: prodActualizado, alertasDisparadas };
     });
 
+    revalidatePath('/tienda');
     return NextResponse.json(resultado);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Error al actualizar el producto';
@@ -513,6 +516,7 @@ export async function POST(request: Request) {
       },
     });
 
+    revalidatePath('/tienda');
     return NextResponse.json(nuevoProd);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Error al crear registro en catálogo';
@@ -528,6 +532,7 @@ export async function DELETE(request: Request) {
     const codProducto = Number(searchParams.get('codProducto'));
     if (codProducto) {
       const resultado = await eliminarProducto(codProducto);
+      revalidatePath('/tienda');
       return NextResponse.json(resultado);
     }
 
@@ -541,6 +546,7 @@ export async function DELETE(request: Request) {
       data: { fechaHoraBajaMarca: new Date() },
     });
 
+    revalidatePath('/tienda');
     return NextResponse.json({ ok: true });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Error al eliminar';

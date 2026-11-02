@@ -109,6 +109,10 @@ model Producto {
   @@index([codCategoria])
   @@index([codDescuento])
   @@index([codProveedorHabitual])
+  // Filtro base de la tienda pública: prendas activas y visibles
+  @@index([visibleEnTiendaOnline, fechaHoraBajaProd])
+  // Orden por precio en la tienda
+  @@index([precio])
 }
 
 model HistorialPrecioProducto {
@@ -162,6 +166,8 @@ model VarianteProducto {
   @@index([codProducto])
   @@index([codTalle])
   @@index([codColor])
+  // Variantes activas por stock (alertas de stock crítico)
+  @@index([fechaHoraBajaVar, stock])
 }
 
 // ==========================================
