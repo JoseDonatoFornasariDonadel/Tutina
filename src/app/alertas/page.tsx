@@ -39,6 +39,8 @@ interface PedidoPendienteAlerta {
   fechaReferencia?: string;
   diasEnEstado: number;
   total: number;
+  totalPagado: number;
+  saldoPendiente: number;
   observaciones?: string | null;
   cliente: {
     codCliente: number;
@@ -144,7 +146,7 @@ export default function AlertasWhatsAppPage() {
     }
   };
 
-  const totalMontoVencido = pedidosPendientesVencidos.reduce((acc, p) => acc + p.total, 0);
+  const totalMontoVencido = pedidosPendientesVencidos.reduce((acc, p) => acc + p.saldoPendiente, 0);
 
   return (
     <div className="space-y-6">
@@ -234,12 +236,16 @@ export default function AlertasWhatsAppPage() {
                 )
                 .join(', ');
 
+              const saldoTexto = pedido.saldoPendiente.toLocaleString('es-AR');
+              const tienePagoParcial = pedido.totalPagado > 0;
+              const detallePagoParcial = tienePagoParcial
+                ? ` (total $${pedido.total.toLocaleString('es-AR')}, ya abonado $${pedido.totalPagado.toLocaleString('es-AR')})`
+                : '';
+
               const mensajeClienteWsp = encodeURIComponent(
                 `Hola ${pedido.cliente.nombreCliente}! Te escribimos de Tutina para recordarte el pago pendiente del Pedido #${String(
                   pedido.nroPedido
-                ).padStart(4, '0')} (${resumenPrendas}) por un total de $${pedido.total.toLocaleString(
-                  'es-AR'
-                )}, pendiente desde hace ${pedido.diasEnEstado} días. ¡Muchas gracias!`
+                ).padStart(4, '0')} (${resumenPrendas}). El saldo pendiente es de $${saldoTexto}${detallePagoParcial}, pendiente desde hace ${pedido.diasEnEstado} días. ¡Muchas gracias!`
               );
               const telefonoClienteLimpio = (pedido.cliente.telefonoCliente || '').replace(
                 /[^0-9]/g,
@@ -252,9 +258,7 @@ export default function AlertasWhatsAppPage() {
                   '0'
                 )} de ${nombreCompleto} lleva ${
                   pedido.diasEnEstado
-                } días pendiente de pago (estado "Entregado y pendiente de pago") por $${pedido.total.toLocaleString(
-                  'es-AR'
-                )}.`
+                } días pendiente de pago (estado "Entregado y pendiente de pago"). Saldo pendiente: $${saldoTexto}${detallePagoParcial}.`
               );
               const telefonoDuenaLimpio = telefonoDestino.replace(/[^0-9]/g, '');
 
@@ -293,8 +297,14 @@ export default function AlertasWhatsAppPage() {
                           Saldo Pendiente
                         </span>
                         <span className="text-lg font-extrabold text-rose-700">
-                          ${pedido.total.toLocaleString('es-AR')}
+                          ${saldoTexto}
                         </span>
+                        {tienePagoParcial && (
+                          <span className="text-[10px] text-slate-500 block">
+                            Total ${pedido.total.toLocaleString('es-AR')} • Pagado $
+                            {pedido.totalPagado.toLocaleString('es-AR')}
+                          </span>
+                        )}
                       </div>
                     </div>
 
