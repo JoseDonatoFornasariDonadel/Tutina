@@ -1259,7 +1259,7 @@ export default function CatalogoPage() {
                     }
                   />
                   <span className="w-11 h-6 rounded-full bg-slate-300 peer-checked:bg-rose-600 transition peer-focus-visible:ring-2 peer-focus-visible:ring-rose-300" />
-                  <span className="absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+                  <span className="dm-switch-perilla absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
                 </span>
               </label>
 

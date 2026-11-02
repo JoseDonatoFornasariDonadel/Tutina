@@ -16,7 +16,7 @@ import { useAppConfig } from '@/components/layout/AppShell';
 import { comprimirImagen } from '@/lib/comprimirImagen';
 
 export default function ConfiguracionPage() {
-  const { config, refreshGlobalState } = useAppConfig();
+  const { config, refreshGlobalState, darkMode } = useAppConfig();
   const [form, setForm] = useState({
     nombreComercial: 'Tutina',
     logoUrl: '/tutina-logo.svg',
@@ -124,7 +124,11 @@ export default function ConfiguracionPage() {
               <img
                 src={form.logoUrl || '/tutina-logo.svg'}
                 alt="Logo Preview"
-                className="max-h-16 w-auto object-contain"
+                className={`max-h-16 w-auto object-contain ${
+                  darkMode && (form.logoUrl || '/tutina-logo.svg').includes('tutina-logo')
+                    ? 'brightness-110 invert hue-rotate-180'
+                    : ''
+                }`}
               />
             </div>
           </div>
