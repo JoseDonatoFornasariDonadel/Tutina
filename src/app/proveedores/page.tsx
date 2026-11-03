@@ -28,6 +28,7 @@ import {
 import { useAppConfig } from '@/components/layout/AppShell';
 import {
   NuevaPrendaModal,
+  type CantidadesPorVariante,
   type NuevoProductoCreado,
 } from '@/components/catalogo/NuevaPrendaModal';
 import type { ColorOpcion } from '@/components/catalogo/ColorSelector';
@@ -105,8 +106,7 @@ interface FacturaHist {
   fechaFactura: string;
   ivaFactura: number;
   costoTotal: number;
-  rutaFacturaPDF?: string | null;
-  comprobanteUrl?: string | null;
+  tieneComprobante?: boolean;
   proveedor: { nombreProveedor: string };
   detallesIngreso: {
     idDetalleIngreso: number;
@@ -121,6 +121,8 @@ interface FacturaHist {
     };
   }[];
 }
+
+const MAX_BYTES_COMPROBANTE_PDF = 3 * 1024 * 1024;
 
 export default function ProveedoresFacturasPage() {
   const { refreshGlobalState } = useAppConfig();
@@ -210,7 +212,8 @@ export default function ProveedoresFacturasPage() {
     try {
       const [provRes, catRes] = await Promise.all([
         fetch('/api/proveedores', { cache: 'no-store' }),
-        fetch('/api/catalogo?all=true', { cache: 'no-store' }),
+        // Modo ligero: fotos como URL en vez de base64 (el catálogo completo puede pesar mucho)
+        fetch('/api/catalogo?all=true&ligero=1', { cache: 'no-store' }),
       ]);
       const data = await provRes.json();
       const catData = await catRes.json();
@@ -436,7 +439,12 @@ export default function ProveedoresFacturasPage() {
   };
 
   // Al guardar una "Nueva Prenda" desde el modal superpuesto, inyectarla automáticamente en la factura
-  const handleNuevaPrendaCreadaParaFactura = async (nuevoProd: NuevoProductoCreado) => {
+  const handleNuevaPrendaCreadaParaFactura = async (
+    nuevoProd: NuevoProductoCreado,
+    cantidadesPorVariante: CantidadesPorVariante
+  ) => {
+    // La prenda se creó con stock 0: la cantidad cargada entra recién con esta factura
+    const cantidadDe = (codVariante: number) => Math.max(0, cantidadesPorVariante[codVariante] ?? 0);
     setModalNuevaPrendaAbierto(false);
 
     // 1. Incorporar el nuevo producto y sus variantes al estado local inmediatamente
@@ -484,12 +492,14 @@ export default function ProveedoresFacturasPage() {
       }));
       setCantidadSeleccionadaPorProd((prev) => ({
         ...prev,
-        [nuevoProd.codProducto]: Math.max(1, nuevoProd.variantes[0].stock || 1),
+        [nuevoProd.codProducto]: Math.max(1, cantidadDe(nuevoProd.variantes[0].codVariante) || 1),
       }));
     }
 
     // 2. Construir los ítems de las variantes recién creadas e inyectarlos tanto en el carrito en vivo como en la factura
-    const nuevosItemsCarrito: ItemCarritoFactura[] = nuevoProd.variantes.map((v) => ({
+    const nuevosItemsCarrito: ItemCarritoFactura[] = nuevoProd.variantes
+      .filter((v) => cantidadDe(v.codVariante) > 0)
+      .map((v) => ({
       codVariante: v.codVariante,
       codProducto: nuevoProd.codProducto,
       sku: v.sku,
@@ -500,7 +510,7 @@ export default function ProveedoresFacturasPage() {
       color: v.color.nombreColor,
       codigoHex: mapearTextoAColorHex(v.color.nombreColor, v.color.codigoHex),
       stockActual: v.stock,
-      cantidadDI: Math.max(1, v.stock || 1),
+      cantidadDI: cantidadDe(v.codVariante),
       precioIndividual: nuevoProd.precioCosto,
     }));
 
@@ -528,6 +538,15 @@ export default function ProveedoresFacturasPage() {
   // Subida de comprobante de factura (PDF o imagen)
   const handleSubirComprobanteFactura = async (file?: File) => {
     if (!file) return;
+    // Los PDF no se comprimen y viajan en base64 (un tercio más pesados): por encima de
+    // ~3 MB la factura superaría el límite de 4,5 MB por petición de Vercel.
+    if (!file.type.startsWith('image/') && file.size > MAX_BYTES_COMPROBANTE_PDF) {
+      alert(
+        `El PDF pesa ${(file.size / 1024 / 1024).toFixed(1)} MB. El máximo es 3 MB: ` +
+          'probá con una versión comprimida o adjuntá una foto del comprobante.'
+      );
+      return;
+    }
     setProcesandoComprobante(true);
     try {
       setNombreArchivoComprobante(file.name);
@@ -624,7 +643,6 @@ export default function ProveedoresFacturasPage() {
           codProveedor: codProveedorSel,
           nroFactura,
           ivaFactura,
-          rutaFacturaPDF: comprobanteUrl || null,
           comprobanteUrl: comprobanteUrl || null,
           detalles: lineasIngreso,
         }),
@@ -1329,7 +1347,10 @@ export default function ProveedoresFacturasPage() {
             </h2>
             <div className="space-y-3">
               {facturas.map((f) => {
-                const urlComp = f.comprobanteUrl || f.rutaFacturaPDF;
+                // El archivo se descarga aparte, así la lista de facturas no trae los comprobantes
+                const urlComp = f.tieneComprobante
+                  ? `/api/proveedores/comprobante/${f.idFactura}`
+                  : null;
                 return (
                   <div
                     key={f.idFactura}
@@ -1351,7 +1372,6 @@ export default function ProveedoresFacturasPage() {
                             href={urlComp}
                             target="_blank"
                             rel="noreferrer"
-                            download={`Comprobante-${f.nroFactura}`}
                             className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[11px] hover:bg-indigo-100"
                           >
                             <FileText className="w-3 h-3" /> Ver comprobante{' '}
@@ -1726,6 +1746,7 @@ export default function ProveedoresFacturasPage() {
         codProveedorPreseleccionado={codProveedorSel}
         zIndexClass="z-[60]"
         onSuccess={handleNuevaPrendaCreadaParaFactura}
+        modoIngresoFactura
       />
     </div>
   );

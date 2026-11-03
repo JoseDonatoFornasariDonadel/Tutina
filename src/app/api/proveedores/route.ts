@@ -2,13 +2,17 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { registrarFacturaIngreso } from '@/lib/services/ingresos.service';
+import { urlImagenPublica } from '@/lib/services/tienda.service';
 
 export async function GET() {
-  const [proveedores, facturas, variantes] = await Promise.all([
+  // Rendimiento: solo los campos que usa la pantalla. Antes se traían los comprobantes
+  // (base64) de cada factura dos veces y la foto de la prenda repetida en cada variante.
+  const [proveedores, facturasRaw, facturasConComprobante, variantesRaw] = await Promise.all([
     prisma.proveedor.findMany({
       where: { fechaHoraBajaProv: null },
       include: {
         facturas: {
+          select: { idFactura: true },
           orderBy: { fechaFactura: 'desc' },
         },
         productosHabituales: {
@@ -20,15 +24,28 @@ export async function GET() {
     }),
     prisma.factura.findMany({
       where: { fechaHoraBajaFact: null },
-      include: {
-        proveedor: true,
+      select: {
+        idFactura: true,
+        nroFactura: true,
+        fechaFactura: true,
+        fechaRegistroIngreso: true,
+        ivaFactura: true,
+        costoTotal: true,
+        codProveedor: true,
+        proveedor: { select: { codProveedor: true, nombreProveedor: true } },
         detallesIngreso: {
-          include: {
+          select: {
+            idDetalleIngreso: true,
+            cantidadDI: true,
+            precioIndividual: true,
+            subtotalDI: true,
+            codVariante: true,
             variante: {
-              include: {
-                producto: true,
-                talle: true,
-                color: true,
+              select: {
+                sku: true,
+                producto: { select: { codProducto: true, nombre: true } },
+                talle: { select: { nombreTalle: true } },
+                color: { select: { nombreColor: true } },
               },
             },
           },
@@ -36,18 +53,54 @@ export async function GET() {
       },
       orderBy: { fechaFactura: 'desc' },
     }),
+    prisma.factura.findMany({
+      where: {
+        fechaHoraBajaFact: null,
+        OR: [{ comprobanteUrl: { not: null } }, { rutaFacturaPDF: { not: null } }],
+      },
+      select: { idFactura: true },
+    }),
     prisma.varianteProducto.findMany({
       where: { fechaHoraBajaVar: null },
-      include: {
+      select: {
+        codVariante: true,
+        sku: true,
+        stock: true,
+        imagenVariante: true,
+        talle: { select: { codTalle: true, nombreTalle: true } },
+        color: { select: { codColor: true, nombreColor: true, codigoHex: true } },
         producto: {
-          include: { marca: true, categoria: true },
+          select: {
+            codProducto: true,
+            nombre: true,
+            imagen: true,
+            precioCosto: true,
+            porcentajeMarkup: true,
+            precio: true,
+            marca: { select: { codMarca: true, nombreMarca: true } },
+            categoria: { select: { codCategoria: true, nombreCategoria: true } },
+          },
         },
-        talle: true,
-        color: true,
       },
       orderBy: [{ producto: { nombre: 'asc' } }, { talle: { ordenVisualizacion: 'asc' } }],
     }),
   ]);
+
+  const idsConComprobante = new Set(facturasConComprobante.map((f) => f.idFactura));
+  const facturas = facturasRaw.map((f) => ({
+    ...f,
+    tieneComprobante: idsConComprobante.has(f.idFactura),
+  }));
+
+  // Las fotos viajan como URL corta (se sirven aparte con caché), no como base64
+  const variantes = variantesRaw.map((v) => ({
+    ...v,
+    imagenVariante: urlImagenPublica('variante', v.codVariante, v.imagenVariante),
+    producto: {
+      ...v.producto,
+      imagen: urlImagenPublica('producto', v.producto.codProducto, v.producto.imagen) ?? '',
+    },
+  }));
 
   return NextResponse.json({ proveedores, facturas, variantes });
 }

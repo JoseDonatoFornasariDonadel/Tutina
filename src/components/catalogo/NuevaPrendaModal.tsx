@@ -64,10 +64,22 @@ interface VarianteNuevaRow {
   imagenVariante: string;
 }
 
+/** Cantidad cargada en el formulario para cada variante creada (por codVariante). */
+export type CantidadesPorVariante = Record<number, number>;
+
 interface NuevaPrendaModalProps {
   abierto: boolean;
   onClose: () => void;
-  onSuccess: (productoCreado: NuevoProductoCreado) => void | Promise<void>;
+  onSuccess: (
+    productoCreado: NuevoProductoCreado,
+    cantidadesPorVariante: CantidadesPorVariante
+  ) => void | Promise<void>;
+  /**
+   * Prenda creada desde una factura de proveedor: las variantes se guardan con stock 0 y
+   * la cantidad cargada se informa en onSuccess para que entre con la factura (si no, el
+   * stock se sumaría dos veces: al crear la prenda y al registrar la factura).
+   */
+  modoIngresoFactura?: boolean;
   marcasIniciales: { codMarca: number; nombreMarca: string }[];
   categorias: {
     codCategoria: number;
@@ -103,6 +115,7 @@ export function NuevaPrendaModal({
   coloresIniciales,
   codProveedorPreseleccionado,
   zIndexClass = 'z-50',
+  modoIngresoFactura = false,
 }: NuevaPrendaModalProps) {
   const [marcas, setMarcas] = useState(marcasIniciales);
   const [descuentos, setDescuentos] = useState(descuentosIniciales);
@@ -440,6 +453,44 @@ export function NuevaPrendaModal({
     setGuardando(true);
     try {
       const primeraImg = listaVariantesNuevas.find((v) => v.imagenVariante)?.imagenVariante;
+
+      // La foto de cada color viaja una sola vez (en la primera fila de ese color). La tienda
+      // y el panel la toman para todos los talles del color, así no se guarda repetida.
+      const imagenesAEnviar: Record<string, string | null> = {};
+      const imagenEnviadaPorColor = new Map<number, string>();
+      for (const v of listaVariantesNuevas) {
+        const img =
+          v.imagenVariante || obtenerImagenPreviaPorColor(listaVariantesNuevas, v.codColor) || null;
+        if (!img) {
+          imagenesAEnviar[v.idTemp] = null;
+        } else if (imagenEnviadaPorColor.get(v.codColor) === img) {
+          imagenesAEnviar[v.idTemp] = null;
+        } else {
+          if (!imagenEnviadaPorColor.has(v.codColor)) imagenEnviadaPorColor.set(v.codColor, img);
+          imagenesAEnviar[v.idTemp] = img;
+        }
+      }
+
+      // Relaciona cada variante creada con la fila del formulario (mismo talle y color, en orden)
+      const emparejarCantidades = (prod: NuevoProductoCreado): CantidadesPorVariante => {
+        const usadas = new Set<number>();
+        const cantidades: CantidadesPorVariante = {};
+        for (const fila of listaVariantesNuevas) {
+          const creada = [...(prod.variantes || [])]
+            .sort((a, b) => a.codVariante - b.codVariante)
+            .find(
+              (v) =>
+                !usadas.has(v.codVariante) &&
+                v.codTalle === Number(fila.codTalle) &&
+                v.codColor === Number(fila.codColor)
+            );
+          if (creada) {
+            usadas.add(creada.codVariante);
+            cantidades[creada.codVariante] = Math.max(0, Number(fila.stock) || 0);
+          }
+        }
+        return cantidades;
+      };
       const res = await fetch('/api/catalogo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -450,21 +501,18 @@ export function NuevaPrendaModal({
           codProveedorHabitual: nuevoProdForm.codProveedorHabitual
             ? Number(nuevoProdForm.codProveedorHabitual)
             : null,
-          variantes: listaVariantesNuevas.map((v) => {
-            const imgColor =
-              v.imagenVariante || obtenerImagenPreviaPorColor(listaVariantesNuevas, v.codColor);
-            return {
-              codTalle: Number(v.codTalle),
-              codColor: Number(v.codColor),
-              stock: Number(v.stock),
-              imagenVariante: imgColor || null,
-            };
-          }),
+          variantes: listaVariantesNuevas.map((v) => ({
+            codTalle: Number(v.codTalle),
+            codColor: Number(v.codColor),
+            // Desde una factura, el stock entra al registrar la factura
+            stock: modoIngresoFactura ? 0 : Number(v.stock),
+            imagenVariante: imagenesAEnviar[v.idTemp] ?? null,
+          })),
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al crear producto');
-      await onSuccess(data);
+      await onSuccess(data, emparejarCantidades(data as NuevoProductoCreado));
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Error al crear producto');
     } finally {
@@ -876,6 +924,12 @@ export function NuevaPrendaModal({
                   Si agregás otro talle del mismo color, la imagen subida para ese color se reutiliza
                   automáticamente. Solo necesitás subir una foto nueva cuando el color cambia.
                 </p>
+                {modoIngresoFactura && (
+                  <p className="text-[11px] font-semibold text-indigo-700">
+                    La cantidad de cada talle entra a la factura y se suma al stock recién al
+                    registrarla.
+                  </p>
+                )}
               </div>
 
               <button
@@ -954,7 +1008,7 @@ export function NuevaPrendaModal({
 
                     <div className="sm:col-span-2">
                       <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                        Stock (Unid.)
+                        {modoIngresoFactura ? 'Cantidad que ingresa' : 'Stock (Unid.)'}
                       </label>
                       <input
                         type="number"
