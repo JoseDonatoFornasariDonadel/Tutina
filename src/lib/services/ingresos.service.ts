@@ -14,6 +14,7 @@ export interface RegistrarFacturaInput {
   fechaFactura?: string;
   ivaFactura?: number;
   rutaFacturaPDF?: string;
+  comprobanteUrl?: string | null;
   detalles: DetalleIngresoInput[];
 }
 
@@ -48,7 +49,9 @@ export async function registrarFacturaIngreso(input: RegistrarFacturaInput) {
         nroFactura: input.nroFactura,
         fechaFactura: input.fechaFactura ? new Date(input.fechaFactura) : new Date(),
         ivaFactura: input.ivaFactura ?? 21.0,
-        rutaFacturaPDF: input.rutaFacturaPDF || null,
+        // El comprobante se guarda una sola vez (rutaFacturaPDF queda para datos anteriores)
+        rutaFacturaPDF: input.comprobanteUrl ? null : input.rutaFacturaPDF || null,
+        comprobanteUrl: input.comprobanteUrl || null,
         costoTotal: costoTotalCalculado,
         codProveedor: input.codProveedor,
         detallesIngreso: {

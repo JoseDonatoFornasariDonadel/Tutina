@@ -25,6 +25,8 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { ColorSelector, type ColorOpcion } from '@/components/catalogo/ColorSelector';
+import { NuevaPrendaModal } from '@/components/catalogo/NuevaPrendaModal';
+import { mapearTextoAColorHex } from '@/lib/colores';
 import {
   calcularCoeficienteReventa,
   calcularMarkupReverso,
@@ -90,14 +92,6 @@ interface ProductoCat {
     Pick<Variante, 'codVariante' | 'sku' | 'stock' | 'alertaStockEnviada' | 'talle' | 'color'>
   > &
     Variante[];
-}
-
-interface VarianteNuevaRow {
-  idTemp: string;
-  codTalle: number;
-  codColor: number;
-  stock: number;
-  imagenVariante: string;
 }
 
 export default function CatalogoPage() {
@@ -169,21 +163,6 @@ export default function CatalogoPage() {
 
   // Modal de Nueva Prenda y su Lista Dinámica de Variantes (Talle, Color, Stock e Imagen)
   const [modalNuevoProd, setModalNuevoProd] = useState(false);
-  const [nuevoProdForm, setNuevoProdForm] = useState({
-    nombre: '',
-    descripcion: '',
-    imagen:
-      'https://images.unsplash.com/photo-1518310383802-640c2de311b2?auto=format&fit=crop&w=800&q=80',
-    precioCosto: 12000,
-    porcentajeMarkup: 125,
-    precio: 27000,
-    codMarca: 0,
-    codCategoria: 0,
-    codTemporada: 0,
-    codDescuento: '',
-    codProveedorHabitual: '',
-  });
-  const [listaVariantesNuevas, setListaVariantesNuevas] = useState<VarianteNuevaRow[]>([]);
 
   const cargarCatalogo = useCallback(
     async (pageToFetch: number = paginaActual) => {
@@ -213,19 +192,6 @@ export default function CatalogoPage() {
         setProveedores(data.proveedores || []);
         setTalles(data.talles || []);
         setColores(data.colores || []);
-
-        setNuevoProdForm((prev) => ({
-          ...prev,
-          codMarca: prev.codMarca || data.marcas?.[0]?.codMarca || 0,
-          codCategoria: prev.codCategoria || data.categorias?.[0]?.codCategoria || 0,
-          porcentajeMarkup:
-            prev.porcentajeMarkup || data.categorias?.[0]?.markupPorDefectoCategoria || 125,
-          precio: calcularPrecioSugerido(
-            prev.precioCosto,
-            prev.porcentajeMarkup || data.categorias?.[0]?.markupPorDefectoCategoria || 125
-          ),
-          codTemporada: prev.codTemporada || data.temporadas?.[0]?.codTemporada || 0,
-        }));
       } finally {
         setLoading(false);
       }
@@ -246,55 +212,7 @@ export default function CatalogoPage() {
   }, [cargarCatalogo, paginaActual]);
 
   const abrirModalNuevaPrenda = () => {
-    const mkInicial = categorias[0]?.markupPorDefectoCategoria ?? 125;
-    const talleInicial = talles[0]?.codTalle ?? 0;
-    const colorInicial = colores[0]?.codColor ?? 0;
-
-    setNuevoProdForm({
-      nombre: '',
-      descripcion: '',
-      imagen:
-        'https://images.unsplash.com/photo-1518310383802-640c2de311b2?auto=format&fit=crop&w=800&q=80',
-      precioCosto: 12000,
-      porcentajeMarkup: mkInicial,
-      precio: calcularPrecioSugerido(12000, mkInicial),
-      codMarca: marcas[0]?.codMarca ?? 0,
-      codCategoria: categorias[0]?.codCategoria ?? 0,
-      codTemporada: temporadas[0]?.codTemporada ?? 0,
-      codDescuento: '',
-      codProveedorHabitual: proveedores[0]?.codProveedor ? String(proveedores[0].codProveedor) : '',
-    });
-
-    setListaVariantesNuevas([
-      {
-        idTemp: `var-${Date.now()}-1`,
-        codTalle: talleInicial,
-        codColor: colorInicial,
-        stock: 6,
-        imagenVariante: '',
-      },
-    ]);
-
     setModalNuevoProd(true);
-  };
-
-  const agregarElementoVarianteNueva = () => {
-    const sigTalle =
-      talles[listaVariantesNuevas.length % Math.max(1, talles.length)]?.codTalle ??
-      talles[0]?.codTalle ??
-      0;
-    const sigColor = colores[0]?.codColor ?? 0;
-
-    setListaVariantesNuevas((prev) => [
-      ...prev,
-      {
-        idTemp: `var-${Date.now()}-${prev.length + 1}`,
-        codTalle: sigTalle,
-        codColor: sigColor,
-        stock: 5,
-        imagenVariante: '',
-      },
-    ]);
   };
 
   // Las fotos se comprimen en el navegador antes de guardarlas (ver comprimirImagen)
@@ -312,34 +230,27 @@ export default function CatalogoPage() {
     }
   };
 
-  const handleSubirImagenVarianteNueva = async (idx: number, file?: File) => {
-    if (!file) return;
-    const dataUrl = await prepararImagen(file);
-    if (!dataUrl) return;
-    setListaVariantesNuevas((prev) => {
-      const copia = [...prev];
-      if (copia[idx]) copia[idx] = { ...copia[idx], imagenVariante: dataUrl };
-      return copia;
-    });
-    if (idx === 0) {
-      setNuevoProdForm((prev) => ({ ...prev, imagen: dataUrl }));
-    }
-  };
-
   const handleSubirImagenVarianteEdicion = async (idx: number, file?: File) => {
     if (!file || !productoEditando) return;
     const dataUrl = await prepararImagen(file);
     if (!dataUrl) return;
-    // Actualización funcional: el formulario pudo cambiar mientras se comprimía la foto
+    // Actualización funcional: asigna la imagen a la variante y a las demás del mismo color
     setProductoEditando((prev) => {
       if (!prev) return prev;
       const nuevas = [...prev.variantes];
       if (!nuevas[idx]) return prev;
-      nuevas[idx] = { ...nuevas[idx], imagenVariante: dataUrl };
+      const codColorObj = nuevas[idx].codColor ?? nuevas[idx].color?.codColor;
+      const actualizadas = nuevas.map((v, i) => {
+        const codC = v.codColor ?? v.color?.codColor;
+        if (i === idx || (codColorObj && codC === codColorObj)) {
+          return { ...v, imagenVariante: dataUrl };
+        }
+        return v;
+      });
       return {
         ...prev,
         imagen: idx === 0 ? dataUrl : prev.imagen,
-        variantes: nuevas as ProductoCat['variantes'],
+        variantes: actualizadas as ProductoCat['variantes'],
       };
     });
   };
@@ -389,7 +300,6 @@ export default function CatalogoPage() {
       if (productoEditando) {
         setProductoEditando({ ...productoEditando, codMarca: data.codMarca });
       }
-      setNuevoProdForm((prev) => ({ ...prev, codMarca: data.codMarca }));
       setNombreMarcaRapida('');
       setMostrarAltaMarcaRapida(false);
     }
@@ -496,10 +406,6 @@ export default function CatalogoPage() {
           codProveedorHabitual: data.codProveedor,
         });
       }
-      setNuevoProdForm((prev) => ({
-        ...prev,
-        codProveedorHabitual: String(data.codProveedor),
-      }));
       setNuevoProvRapido({ nombreProveedor: '', numeroProveedor: '+54911' });
       setMostrarAltaProvRapida(false);
     }
@@ -529,10 +435,6 @@ export default function CatalogoPage() {
           descuento: data,
         });
       }
-      setNuevoProdForm((prev) => ({
-        ...prev,
-        codDescuento: String(data.codDescuento),
-      }));
       setNuevoDescRapido((prev) => ({ ...prev, nombreDesc: '', porcentajeDesc: 15 }));
       setMostrarAltaDescRapida(false);
     }
@@ -598,10 +500,30 @@ export default function CatalogoPage() {
     if (!productoEditando) return;
     setGuardando(true);
     try {
+      // Solo se mandan las fotos que cambiaron: el resto ya está guardado. Reenviar todas
+      // (una por talle) puede superar el límite de 4,5 MB por petición de Vercel.
+      const original = productos.find((p) => p.codProducto === productoEditando.codProducto);
+      const imagenOriginalPorVariante = new Map(
+        (original?.variantes ?? []).map((v) => [v.codVariante, v.imagenVariante ?? null])
+      );
+      const cuerpo = {
+        ...productoEditando,
+        imagen:
+          original && original.imagen === productoEditando.imagen
+            ? undefined
+            : productoEditando.imagen,
+        variantes: productoEditando.variantes.map((v) => {
+          const sinCambios =
+            v.codVariante !== undefined &&
+            imagenOriginalPorVariante.has(v.codVariante) &&
+            imagenOriginalPorVariante.get(v.codVariante) === (v.imagenVariante ?? null);
+          return sinCambios ? { ...v, imagenVariante: undefined } : v;
+        }),
+      };
       const res = await fetch('/api/catalogo', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(productoEditando),
+        body: JSON.stringify(cuerpo),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al guardar cambios');
@@ -624,50 +546,6 @@ export default function CatalogoPage() {
       await refreshGlobalState();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Error al actualizar');
-    } finally {
-      setGuardando(false);
-    }
-  };
-
-  const crearNuevoProducto = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (listaVariantesNuevas.length === 0) {
-      alert('Agrega al menos un elemento de Talle y Color a la lista.');
-      return;
-    }
-    setGuardando(true);
-    try {
-      const primeraImg = listaVariantesNuevas.find((v) => v.imagenVariante)?.imagenVariante;
-      const res = await fetch('/api/catalogo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...nuevoProdForm,
-          imagen: primeraImg || nuevoProdForm.imagen,
-          codDescuento: nuevoProdForm.codDescuento ? Number(nuevoProdForm.codDescuento) : null,
-          codProveedorHabitual: nuevoProdForm.codProveedorHabitual
-            ? Number(nuevoProdForm.codProveedorHabitual)
-            : null,
-          variantes: listaVariantesNuevas.map((v) => ({
-            codTalle: Number(v.codTalle),
-            codColor: Number(v.codColor),
-            stock: Number(v.stock),
-            imagenVariante: v.imagenVariante || null,
-          })),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Error al crear producto');
-      setModalNuevoProd(false);
-      setNotificacion({
-        tipo: 'ok',
-        texto: `¡Prenda "${nuevoProdForm.nombre}" creada con ${listaVariantesNuevas.length} variante(s) de talle y color!`,
-      });
-      setPaginaActual(1);
-      await cargarCatalogo(1);
-      await refreshGlobalState();
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al crear producto');
     } finally {
       setGuardando(false);
     }
@@ -1074,7 +952,12 @@ export default function CatalogoPage() {
                             ) : (
                               <span
                                 className="w-2.5 h-2.5 rounded-full border border-slate-300"
-                                style={{ backgroundColor: v.color?.codigoHex || '#111827' }}
+                                style={{
+                                  backgroundColor: mapearTextoAColorHex(
+                                    v.color?.nombreColor || '',
+                                    v.color?.codigoHex
+                                  ),
+                                }}
                               />
                             )}
                             <span>
@@ -1838,578 +1721,27 @@ export default function CatalogoPage() {
       {/* =========================================================================== */}
       {/* MODAL DE ALTA DE NUEVA PRENDA CON LISTA DINÁMICA (TALLE, COLOR, STOCK, IMG) */}
       {/* =========================================================================== */}
-      {modalNuevoProd && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-3xl w-full border border-slate-200 shadow-2xl overflow-hidden my-8">
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-              <h2 className="text-base font-bold flex items-center gap-2">
-                <Tag className="w-4 h-4 text-rose-400" /> Incorporar Nueva Prenda al Catálogo
-              </h2>
-              <button
-                onClick={() => setModalNuevoProd(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form
-              onSubmit={crearNuevoProducto}
-              className="p-6 space-y-5 max-h-[84vh] overflow-y-auto"
-            >
-              {/* Datos generales de la Prenda */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Nombre de la Indumentaria *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej: Calza Deportiva Seamless Texturada"
-                    value={nuevoProdForm.nombre}
-                    onChange={(e) => setNuevoProdForm({ ...nuevoProdForm, nombre: e.target.value })}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Descripción de la Prenda
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ej: Tejido elastizado tiro alto..."
-                    value={nuevoProdForm.descripcion}
-                    onChange={(e) =>
-                      setNuevoProdForm({ ...nuevoProdForm, descripcion: e.target.value })
-                    }
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Categoría
-                  </label>
-                  <select
-                    value={nuevoProdForm.codCategoria}
-                    onChange={(e) => {
-                      const catId = Number(e.target.value);
-                      const cat = categorias.find((c) => c.codCategoria === catId);
-                      const mk = cat?.markupPorDefectoCategoria ?? 120;
-                      setNuevoProdForm({
-                        ...nuevoProdForm,
-                        codCategoria: catId,
-                        porcentajeMarkup: mk,
-                        precio: calcularPrecioSugerido(nuevoProdForm.precioCosto, mk),
-                      });
-                    }}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white"
-                  >
-                    {categorias.map((c) => (
-                      <option key={c.codCategoria} value={c.codCategoria}>
-                        {c.nombreCategoria}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-700">Marca</label>
-                    <button
-                      type="button"
-                      onClick={() => setMostrarAltaMarcaRapida(!mostrarAltaMarcaRapida)}
-                      className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer flex items-center gap-0.5"
-                    >
-                      <BookmarkPlus className="w-3 h-3" /> + Nueva Marca
-                    </button>
-                  </div>
-                  <select
-                    value={nuevoProdForm.codMarca}
-                    onChange={(e) =>
-                      setNuevoProdForm({ ...nuevoProdForm, codMarca: Number(e.target.value) })
-                    }
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white"
-                  >
-                    {marcas.map((m) => (
-                      <option key={m.codMarca} value={m.codMarca}>
-                        {m.nombreMarca}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {mostrarAltaMarcaRapida && (
-                  <div className="sm:col-span-2 p-3 rounded-xl bg-rose-50/70 border border-rose-200 flex items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder="Nombre de la nueva marca *"
-                      value={nombreMarcaRapida}
-                      onChange={(e) => setNombreMarcaRapida(e.target.value)}
-                      className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleCrearMarcaAlVuelo}
-                      className="px-4 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 cursor-pointer"
-                    >
-                      Guardar Marca
-                    </button>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Temporada
-                  </label>
-                  <select
-                    value={nuevoProdForm.codTemporada}
-                    onChange={(e) =>
-                      setNuevoProdForm({ ...nuevoProdForm, codTemporada: Number(e.target.value) })
-                    }
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white"
-                  >
-                    {temporadas.map((t) => (
-                      <option key={t.codTemporada} value={t.codTemporada}>
-                        {t.nombreTemporada}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-700">
-                      Proveedor Habitual
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setMostrarAltaProvRapida(!mostrarAltaProvRapida)}
-                      className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer flex items-center gap-0.5"
-                    >
-                      <Building2 className="w-3 h-3" /> + Nuevo Proveedor
-                    </button>
-                  </div>
-                  <select
-                    value={nuevoProdForm.codProveedorHabitual}
-                    onChange={(e) =>
-                      setNuevoProdForm({ ...nuevoProdForm, codProveedorHabitual: e.target.value })
-                    }
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white"
-                  >
-                    <option value="">Sin especificar</option>
-                    {proveedores.map((pr) => (
-                      <option key={pr.codProveedor} value={pr.codProveedor}>
-                        {pr.nombreProveedor}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {mostrarAltaProvRapida && (
-                  <div className="sm:col-span-2 p-3 rounded-xl bg-rose-50/70 border border-rose-200 grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
-                    <input
-                      type="text"
-                      placeholder="Nombre Proveedor *"
-                      value={nuevoProvRapido.nombreProveedor}
-                      onChange={(e) =>
-                        setNuevoProvRapido({ ...nuevoProvRapido, nombreProveedor: e.target.value })
-                      }
-                      className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white"
-                    />
-                    <input
-                      type="text"
-                      placeholder="WhatsApp *"
-                      value={nuevoProvRapido.numeroProveedor}
-                      onChange={(e) =>
-                        setNuevoProvRapido({ ...nuevoProvRapido, numeroProveedor: e.target.value })
-                      }
-                      className="px-2.5 py-1.5 text-xs font-mono rounded-lg border border-slate-300 bg-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleCrearProveedorAlVueloCatalogo}
-                      className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 cursor-pointer"
-                    >
-                      Guardar Proveedor
-                    </button>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Precio Costo ($)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={nuevoProdForm.precioCosto}
-                    onChange={(e) => {
-                      const costo = Number(e.target.value);
-                      setNuevoProdForm({
-                        ...nuevoProdForm,
-                        precioCosto: costo,
-                        precio: calcularPrecioSugerido(costo, nuevoProdForm.porcentajeMarkup),
-                      });
-                    }}
-                    className="w-full px-3 py-2 text-sm font-bold rounded-xl border border-slate-200"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-indigo-700 mb-1">
-                    Markup (%)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={nuevoProdForm.porcentajeMarkup}
-                    onChange={(e) => {
-                      const mk = Number(e.target.value);
-                      setNuevoProdForm({
-                        ...nuevoProdForm,
-                        porcentajeMarkup: mk,
-                        precio: calcularPrecioSugerido(nuevoProdForm.precioCosto, mk),
-                      });
-                    }}
-                    className="w-full px-3 py-2 text-sm font-bold text-indigo-700 rounded-xl border border-indigo-200"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 bg-emerald-50 p-3 rounded-xl border border-emerald-200 flex items-center justify-between">
-                  <span className="text-xs font-bold text-emerald-900">
-                    Precio de Venta Calculado ($):
-                  </span>
-                  <input
-                    type="number"
-                    required
-                    value={nuevoProdForm.precio}
-                    onChange={(e) =>
-                      setNuevoProdForm({ ...nuevoProdForm, precio: Number(e.target.value) })
-                    }
-                    className="w-36 px-3 py-1.5 text-sm font-extrabold text-emerald-800 bg-white rounded-lg border border-emerald-300 text-right"
-                  />
-                </div>
-              </div>
-
-              {/* Recuadro de Descuento Promocional en Nueva Prenda (Seleccionar existente o Crear nuevo) */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                      <Percent className="w-4 h-4 text-rose-600" /> Descuento Promocional
-                      (Opcional)
-                    </h3>
-                    <p className="text-[11px] text-slate-500">
-                      Selecciona un descuento existente para esta nueva prenda o crea uno nuevo.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setMostrarAltaDescRapida(!mostrarAltaDescRapida)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-rose-300 text-rose-700 text-xs font-bold hover:bg-rose-50 transition cursor-pointer shrink-0 shadow-2xs"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    {mostrarAltaDescRapida ? 'Cancelar nuevo' : 'Crear nuevo descuento'}
-                  </button>
-                </div>
-
-                {mostrarAltaDescRapida && (
-                  <div className="p-3.5 rounded-xl bg-rose-50/70 border border-rose-200 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
-                    <div className="sm:col-span-4">
-                      <label className="block text-[10px] font-bold uppercase text-rose-900 mb-1">
-                        Nombre del Descuento *
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Ej: Promo Lanzamiento"
-                        value={nuevoDescRapido.nombreDesc}
-                        onChange={(e) =>
-                          setNuevoDescRapido({ ...nuevoDescRapido, nombreDesc: e.target.value })
-                        }
-                        className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="block text-[10px] font-bold uppercase text-rose-900 mb-1">
-                        % OFF *
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={90}
-                        value={nuevoDescRapido.porcentajeDesc}
-                        onChange={(e) =>
-                          setNuevoDescRapido({
-                            ...nuevoDescRapido,
-                            porcentajeDesc: Number(e.target.value),
-                          })
-                        }
-                        className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-300 bg-white"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="block text-[10px] font-bold uppercase text-rose-900 mb-1">
-                        Desde
-                      </label>
-                      <input
-                        type="date"
-                        value={nuevoDescRapido.fechaInicioDesc}
-                        onChange={(e) =>
-                          setNuevoDescRapido({
-                            ...nuevoDescRapido,
-                            fechaInicioDesc: e.target.value,
-                          })
-                        }
-                        className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-300 bg-white"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="block text-[10px] font-bold uppercase text-rose-900 mb-1">
-                        Hasta
-                      </label>
-                      <input
-                        type="date"
-                        value={nuevoDescRapido.fechaFinDesc}
-                        onChange={(e) =>
-                          setNuevoDescRapido({ ...nuevoDescRapido, fechaFinDesc: e.target.value })
-                        }
-                        className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-300 bg-white"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <button
-                        type="button"
-                        onClick={handleCrearDescuentoAlVuelo}
-                        className="w-full py-1.5 px-3 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 cursor-pointer"
-                      >
-                        Guardar Promo
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-                  <select
-                    value={nuevoProdForm.codDescuento}
-                    onChange={(e) =>
-                      setNuevoProdForm({ ...nuevoProdForm, codDescuento: e.target.value })
-                    }
-                    className="w-full px-3 py-2 text-xs sm:text-sm font-medium rounded-xl border border-slate-300 bg-white"
-                  >
-                    <option value="">✓ Sin descuento aplicado (Precio de Lista Completo)</option>
-                    {descuentos.map((d) => (
-                      <option key={d.codDescuento} value={d.codDescuento}>
-                        {d.nombreDesc} (-{d.porcentajeDesc}% OFF)
-                      </option>
-                    ))}
-                  </select>
-
-                  {(() => {
-                    const descSel = descuentos.find(
-                      (d) => String(d.codDescuento) === String(nuevoProdForm.codDescuento)
-                    );
-                    const pct = descSel ? descSel.porcentajeDesc : 0;
-                    const finalConDesc = calcularPrecioNetoConDescuento(nuevoProdForm.precio, pct);
-                    return (
-                      <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between text-xs">
-                        <span className="font-semibold text-slate-600">Precio Final Cliente:</span>
-                        {pct > 0 ? (
-                          <div className="text-right">
-                            <span className="line-through text-slate-400 mr-1.5">
-                              ${nuevoProdForm.precio.toLocaleString('es-AR')}
-                            </span>
-                            <span className="text-sm font-extrabold text-rose-600">
-                              ${finalConDesc.toLocaleString('es-AR')} (-{pct}%)
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-sm font-extrabold text-emerald-700">
-                            ${nuevoProdForm.precio.toLocaleString('es-AR')} (Sin descuento)
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {/* Lista Dinámica de Variantes: Talle, Color, Stock y Cargar Imagen */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                      <Layers className="w-4 h-4 text-rose-600" /> Lista de Talles, Colores, Stock e
-                      Imágenes ({listaVariantesNuevas.length})
-                    </h3>
-                    <p className="text-[11px] text-slate-500">
-                      Agrega cada combinación de talle y color de la prenda. Puedes editar su talle,
-                      color, stock y cargar una foto para cada elemento.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={agregarElementoVarianteNueva}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition cursor-pointer shrink-0 shadow-2xs"
-                  >
-                    <Plus className="w-4 h-4" /> Agregar Talle y Color a la Lista
-                  </button>
-                </div>
-
-                <div className="space-y-2.5">
-                  {listaVariantesNuevas.map((item, idx) => {
-                    const colorSelObj = colores.find((c) => c.codColor === Number(item.codColor));
-                    return (
-                      <div
-                        key={item.idTemp}
-                        className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-2xs grid grid-cols-1 sm:grid-cols-12 gap-3 items-center"
-                      >
-                        <div className="sm:col-span-3">
-                          <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                            Talle
-                          </label>
-                          <select
-                            value={item.codTalle}
-                            onChange={(e) => {
-                              const copia = [...listaVariantesNuevas];
-                              copia[idx] = { ...item, codTalle: Number(e.target.value) };
-                              setListaVariantesNuevas(copia);
-                            }}
-                            className="w-full px-2.5 py-2 text-xs font-bold rounded-lg border border-slate-300 bg-white"
-                          >
-                            {talles.map((t) => (
-                              <option key={t.codTalle} value={t.codTalle}>
-                                Talle {t.nombreTalle}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="sm:col-span-3">
-                          <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1 flex items-center gap-1.5">
-                            <span>Color</span>
-                            {colorSelObj && (
-                              <span
-                                className="w-2.5 h-2.5 rounded-full border border-slate-300 inline-block"
-                                style={{ backgroundColor: colorSelObj.codigoHex }}
-                              />
-                            )}
-                          </label>
-                          <ColorSelector
-                            colores={colores}
-                            value={item.codColor}
-                            onCrearColor={crearColor}
-                            onChange={(cObj) => {
-                              // Actualización funcional: el color recién creado llega después de un await
-                              setListaVariantesNuevas((prev) =>
-                                prev.map((row) =>
-                                  row.idTemp === item.idTemp
-                                    ? { ...row, codColor: cObj.codColor }
-                                    : row
-                                )
-                              );
-                            }}
-                          />
-                        </div>
-
-                        <div className="sm:col-span-2">
-                          <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                            Stock (Unid.)
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            required
-                            value={item.stock}
-                            onChange={(e) => {
-                              const copia = [...listaVariantesNuevas];
-                              copia[idx] = { ...item, stock: Number(e.target.value) };
-                              setListaVariantesNuevas(copia);
-                            }}
-                            className="w-full px-2.5 py-2 text-xs font-bold rounded-lg border border-slate-300 bg-white"
-                          />
-                        </div>
-
-                        <div className="sm:col-span-3">
-                          <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                            Imagen de la Prenda / Color
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <div className="w-9 h-9 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center shrink-0">
-                              {item.imagenVariante ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={item.imagenVariante}
-                                  alt="Preview"
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <ImageIcon className="w-4 h-4 text-slate-300" />
-                              )}
-                            </div>
-
-                            <label className="flex-1 py-2 px-2.5 rounded-lg border border-dashed border-rose-300 bg-rose-50/50 text-[11px] font-bold text-rose-700 hover:bg-rose-100/60 cursor-pointer text-center truncate">
-                              <Upload className="w-3 h-3 inline mr-1" />
-                              {item.imagenVariante ? 'Cambiar' : 'Cargar foto'}
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) =>
-                                  handleSubirImagenVarianteNueva(idx, e.target.files?.[0])
-                                }
-                                className="hidden"
-                              />
-                            </label>
-                          </div>
-                        </div>
-
-                        <div className="sm:col-span-1 flex justify-end pt-3 sm:pt-4">
-                          <button
-                            type="button"
-                            disabled={listaVariantesNuevas.length <= 1}
-                            onClick={() =>
-                              setListaVariantesNuevas((prev) => prev.filter((_, i) => i !== idx))
-                            }
-                            title="Quitar este elemento de la lista"
-                            className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-30 cursor-pointer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setModalNuevoProd(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={guardando || comprimiendoImagen}
-                  className="px-5 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 cursor-pointer shadow-xs disabled:opacity-50"
-                >
-                  {comprimiendoImagen
-                    ? 'Procesando foto...'
-                    : guardando
-                    ? 'Creando Prenda...'
-                    : `Crear Prenda con ${listaVariantesNuevas.length} Variante(s)`}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <NuevaPrendaModal
+        abierto={modalNuevoProd}
+        onClose={() => setModalNuevoProd(false)}
+        marcasIniciales={marcas}
+        categorias={categorias}
+        temporadas={temporadas}
+        descuentosIniciales={descuentos}
+        proveedoresIniciales={proveedores}
+        talles={talles}
+        coloresIniciales={colores}
+        onSuccess={async (nuevoProd) => {
+          setModalNuevoProd(false);
+          setNotificacion({
+            tipo: 'ok',
+            texto: `¡Prenda "${nuevoProd.nombre}" creada con ${nuevoProd.variantes.length} variante(s) de talle y color!`,
+          });
+          setPaginaActual(1);
+          await cargarCatalogo(1);
+          await refreshGlobalState();
+        }}
+      />
     </div>
   );
 }

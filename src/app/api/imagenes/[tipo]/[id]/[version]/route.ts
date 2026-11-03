@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { ADMIN_COOKIE_NAME, verificarTokenSesionAdmin } from '@/lib/auth';
 
 // Sirve como archivo las imágenes guardadas en la base en formato base64 (data URL).
 // La URL incluye una huella del contenido (version), así que la respuesta se puede
 // cachear sin vencimiento: cuando la foto cambia, la tienda pide otra URL.
 
 const CACHE_INMUTABLE = 'public, max-age=31536000, immutable';
+// Fotos de prendas ocultas o dadas de baja: solo para el panel, sin caché compartida
+const CACHE_PANEL = 'private, max-age=31536000, immutable';
 
 function decodificarDataUrl(valor: string): { tipo: string; datos: Buffer } | null {
   const match = /^data:([^;,]+)?((?:;[^;,]+)*?)(;base64)?,(.*)$/s.exec(valor);
@@ -18,21 +22,29 @@ function decodificarDataUrl(valor: string): { tipo: string; datos: Buffer } | nu
   return { tipo, datos };
 }
 
-async function obtenerValorImagen(tipo: string, id: number): Promise<string | null> {
+async function obtenerValorImagen(
+  tipo: string,
+  id: number,
+  soloVisibles = true
+): Promise<string | null> {
   if (tipo === 'producto') {
     const prod = await prisma.producto.findFirst({
-      where: { codProducto: id, fechaHoraBajaProd: null, visibleEnTiendaOnline: true },
+      where: soloVisibles
+        ? { codProducto: id, fechaHoraBajaProd: null, visibleEnTiendaOnline: true }
+        : { codProducto: id },
       select: { imagen: true },
     });
     return prod?.imagen ?? null;
   }
   if (tipo === 'variante') {
     const variante = await prisma.varianteProducto.findFirst({
-      where: {
-        codVariante: id,
-        fechaHoraBajaVar: null,
-        producto: { fechaHoraBajaProd: null, visibleEnTiendaOnline: true },
-      },
+      where: soloVisibles
+        ? {
+            codVariante: id,
+            fechaHoraBajaVar: null,
+            producto: { fechaHoraBajaProd: null, visibleEnTiendaOnline: true },
+          }
+        : { codVariante: id },
       select: { imagenVariante: true },
     });
     return variante?.imagenVariante ?? null;
@@ -50,7 +62,16 @@ export async function GET(
     return new NextResponse('Imagen no encontrada', { status: 404 });
   }
 
-  const valor = await obtenerValorImagen(tipo, idNum);
+  let valor = await obtenerValorImagen(tipo, idNum);
+  let cache = CACHE_INMUTABLE;
+  if (!valor) {
+    // El panel también muestra prendas ocultas: con sesión de administración se sirven igual
+    const token = (await cookies()).get(ADMIN_COOKIE_NAME)?.value;
+    if (await verificarTokenSesionAdmin(token)) {
+      valor = await obtenerValorImagen(tipo, idNum, false);
+      cache = CACHE_PANEL;
+    }
+  }
   if (!valor) {
     return new NextResponse('Imagen no encontrada', { status: 404 });
   }
@@ -69,7 +90,7 @@ export async function GET(
     headers: {
       'Content-Type': imagen.tipo,
       'Content-Length': String(imagen.datos.length),
-      'Cache-Control': CACHE_INMUTABLE,
+      'Cache-Control': cache,
       'X-Content-Type-Options': 'nosniff',
       // Evita que una imagen SVG abierta directamente pueda ejecutar código
       'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
