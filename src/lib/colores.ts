@@ -46,7 +46,7 @@ const MAPA_COLORES_COMPUESTOS: [string, string][] = [
   ['rosa pastel', '#F9A8D4'], // pink-300
   ['rosa chicle', '#EC4899'], // pink-500
   ['rosa claro', '#FBCFE8'], // pink-200
-  ['rosa Dior', '#F472B6'],
+  ['rosa dior', '#F472B6'],
   ['rojo carmin', '#991B1B'], // red-800
   ['rojo oscuro', '#7F1D1D'], // red-900
   ['rojo fuego', '#DC2626'], // red-600
@@ -211,8 +211,8 @@ export function mapearTextoAColorHex(
 ): string {
   const inferido = inferirHexDesdeTexto(nombreColor);
   const norm = normalizarNombreColor(nombreColor);
-  const esNegroExplicito =
-    norm.includes('negro') || norm.includes('black') || norm.includes('oscuro');
+  // "oscuro" no cuenta: "verde oscuro" o "azul oscuro" tienen su propio tono en el mapa
+  const esNegroExplicito = norm.includes('negro') || norm.includes('black');
 
   const hexLimpio = (hexExistente || '').trim();
   const tieneHexValido = /^#[0-9a-fA-F]{6}$/.test(hexLimpio);

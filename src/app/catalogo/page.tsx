@@ -500,10 +500,30 @@ export default function CatalogoPage() {
     if (!productoEditando) return;
     setGuardando(true);
     try {
+      // Solo se mandan las fotos que cambiaron: el resto ya está guardado. Reenviar todas
+      // (una por talle) puede superar el límite de 4,5 MB por petición de Vercel.
+      const original = productos.find((p) => p.codProducto === productoEditando.codProducto);
+      const imagenOriginalPorVariante = new Map(
+        (original?.variantes ?? []).map((v) => [v.codVariante, v.imagenVariante ?? null])
+      );
+      const cuerpo = {
+        ...productoEditando,
+        imagen:
+          original && original.imagen === productoEditando.imagen
+            ? undefined
+            : productoEditando.imagen,
+        variantes: productoEditando.variantes.map((v) => {
+          const sinCambios =
+            v.codVariante !== undefined &&
+            imagenOriginalPorVariante.has(v.codVariante) &&
+            imagenOriginalPorVariante.get(v.codVariante) === (v.imagenVariante ?? null);
+          return sinCambios ? { ...v, imagenVariante: undefined } : v;
+        }),
+      };
       const res = await fetch('/api/catalogo', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(productoEditando),
+        body: JSON.stringify(cuerpo),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al guardar cambios');

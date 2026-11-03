@@ -7,10 +7,13 @@ import {
   evaluarYDispararAlertaStock,
 } from '@/lib/services/whatsapp.service';
 import { mapearTextoAColorHex } from '@/lib/colores';
+import { urlImagenPublica } from '@/lib/services/tienda.service';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const all = searchParams.get('all') === 'true';
+  // ligero=1: las fotos van como URL corta en vez de base64 (para listados de selección)
+  const ligero = searchParams.get('ligero') === '1';
   const page = Math.max(1, Number(searchParams.get('page') || 1));
   const limit = Math.max(1, Number(searchParams.get('limit') || 12));
   const q = (searchParams.get('q') || '').trim();
@@ -117,8 +120,19 @@ export async function GET(request: Request) {
 
   const totalPages = Math.max(1, Math.ceil(totalItems / limit));
 
+  const productosRespuesta = ligero
+    ? productos.map((p) => ({
+        ...p,
+        imagen: urlImagenPublica('producto', p.codProducto, p.imagen) ?? '',
+        variantes: p.variantes.map((v) => ({
+          ...v,
+          imagenVariante: urlImagenPublica('variante', v.codVariante, v.imagenVariante),
+        })),
+      }))
+    : productos;
+
   return NextResponse.json({
-    productos,
+    productos: productosRespuesta,
     pagination: {
       page,
       limit,
@@ -350,7 +364,8 @@ export async function POST(request: Request) {
           where: { codColor: existente.codColor },
           data: {
             fechaHoraBajaColor: null,
-            codigoHex: mapearTextoAColorHex(existente.nombreColor, hexValido),
+            // Se respeta el tono que ya tenía el color; solo se corrige si era el genérico
+            codigoHex: mapearTextoAColorHex(existente.nombreColor, existente.codigoHex),
           },
         });
         return NextResponse.json(color);
@@ -469,7 +484,9 @@ export async function POST(request: Request) {
       });
     }
 
-    // Reutilizar automáticamente la imagen cargada entre variantes del mismo color
+    // Reutilizar automáticamente la imagen cargada entre variantes del mismo color.
+    // El panel manda cada foto una sola vez por color (para no superar el límite de 4,5 MB
+    // por petición de Vercel) y acá se copia a los demás talles de ese color.
     const imagenPorColor = new Map<number, string>();
     for (const v of variantesValidadas) {
       if (v.imagenVariante && !imagenPorColor.has(v.codColor)) {
