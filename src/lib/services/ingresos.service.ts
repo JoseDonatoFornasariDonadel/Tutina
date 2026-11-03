@@ -14,6 +14,7 @@ export interface RegistrarFacturaInput {
   fechaFactura?: string;
   ivaFactura?: number;
   rutaFacturaPDF?: string;
+  comprobanteUrl?: string | null;
   detalles: DetalleIngresoInput[];
 }
 
@@ -43,12 +44,15 @@ export async function registrarFacturaIngreso(input: RegistrarFacturaInput) {
       };
     });
 
+    const comprobanteFinal = input.comprobanteUrl || input.rutaFacturaPDF || null;
+
     const factura = await tx.factura.create({
       data: {
         nroFactura: input.nroFactura,
         fechaFactura: input.fechaFactura ? new Date(input.fechaFactura) : new Date(),
         ivaFactura: input.ivaFactura ?? 21.0,
-        rutaFacturaPDF: input.rutaFacturaPDF || null,
+        rutaFacturaPDF: comprobanteFinal,
+        comprobanteUrl: comprobanteFinal,
         costoTotal: costoTotalCalculado,
         codProveedor: input.codProveedor,
         detallesIngreso: {

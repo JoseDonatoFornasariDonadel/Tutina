@@ -192,6 +192,7 @@ model Factura {
   fechaFactura         DateTime         @default(now())
   fechaRegistroIngreso DateTime         @default(now())
   rutaFacturaPDF       String?
+  comprobanteUrl       String?
   ivaFactura           Float            @default(21.0)
   costoTotal           Float
   fechaHoraBajaFact    DateTime?

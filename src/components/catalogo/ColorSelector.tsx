@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Plus, Search } from 'lucide-react';
+import { mapearTextoAColorHex, normalizarNombreColor } from '@/lib/colores';
 
 export interface ColorOpcion {
   codColor: number;
@@ -18,16 +19,9 @@ interface ColorSelectorProps {
   className?: string;
 }
 
-function normalizar(texto: string) {
-  return texto
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .trim();
-}
-
 /**
- * Selector de color con buscador y alta inline ("Crear nuevo color: ...").
+ * Selector de color con buscador, mapeo dinámico de texto a color hex
+ * y alta inline ("Crear nuevo color: ...").
  */
 export function ColorSelector({
   colores,
@@ -39,6 +33,7 @@ export function ColorSelector({
   const [abierto, setAbierto] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [hexNuevo, setHexNuevo] = useState('#111827');
+  const [hexManual, setHexManual] = useState(false);
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [indiceActivo, setIndiceActivo] = useState(0);
@@ -46,18 +41,28 @@ export function ColorSelector({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const seleccionado = colores.find((c) => c.codColor === Number(value));
+  const hexSeleccionado = seleccionado
+    ? mapearTextoAColorHex(seleccionado.nombreColor, seleccionado.codigoHex)
+    : '#111827';
 
   const filtrados = useMemo(() => {
-    const q = normalizar(busqueda);
+    const q = normalizarNombreColor(busqueda);
     const lista = [...colores].sort((a, b) => a.nombreColor.localeCompare(b.nombreColor, 'es'));
-    return q ? lista.filter((c) => normalizar(c.nombreColor).includes(q)) : lista;
+    return q ? lista.filter((c) => normalizarNombreColor(c.nombreColor).includes(q)) : lista;
   }, [colores, busqueda]);
 
   const textoBusqueda = busqueda.trim();
   const existeExacto = colores.some(
-    (c) => normalizar(c.nombreColor) === normalizar(textoBusqueda)
+    (c) => normalizarNombreColor(c.nombreColor) === normalizarNombreColor(textoBusqueda)
   );
   const puedeCrear = textoBusqueda.length > 0 && !existeExacto;
+
+  // Mapear dinámicamente el texto ingresado a su código hexadecimal aproximado
+  useEffect(() => {
+    if (!hexManual) {
+      setHexNuevo(mapearTextoAColorHex(textoBusqueda));
+    }
+  }, [textoBusqueda, hexManual]);
 
   // Cerrar al hacer clic afuera
   useEffect(() => {
@@ -74,6 +79,7 @@ export function ColorSelector({
   useEffect(() => {
     if (abierto) {
       setBusqueda('');
+      setHexManual(false);
       setError(null);
       setIndiceActivo(0);
       setTimeout(() => inputRef.current?.focus(), 0);
@@ -85,7 +91,8 @@ export function ColorSelector({
   }, [busqueda]);
 
   const elegir = (c: ColorOpcion) => {
-    onChange(c);
+    const hexResuelto = mapearTextoAColorHex(c.nombreColor, c.codigoHex);
+    onChange({ ...c, codigoHex: hexResuelto });
     setAbierto(false);
   };
 
@@ -94,7 +101,8 @@ export function ColorSelector({
     setCreando(true);
     setError(null);
     try {
-      const nuevo = await onCrearColor(textoBusqueda, hexNuevo);
+      const hexParaGuardar = hexManual ? hexNuevo : mapearTextoAColorHex(textoBusqueda, hexNuevo);
+      const nuevo = await onCrearColor(textoBusqueda, hexParaGuardar);
       elegir(nuevo);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'No se pudo crear el color');
@@ -133,16 +141,17 @@ export function ColorSelector({
       <button
         type="button"
         onClick={() => setAbierto((a) => !a)}
-        className="w-full px-2.5 py-2 text-xs font-medium rounded-lg border border-slate-300 bg-white flex items-center justify-between gap-2 cursor-pointer hover:border-rose-300"
+        className="w-full px-2.5 py-2 text-xs font-medium rounded-lg border border-slate-300 bg-white flex items-center justify-between gap-2 cursor-pointer hover:border-rose-300 transition"
       >
         <span className="flex items-center gap-2 min-w-0">
           {seleccionado && (
             <span
-              className="w-3 h-3 rounded-full border border-slate-300 shrink-0"
-              style={{ backgroundColor: seleccionado.codigoHex }}
+              className="w-4 h-4 rounded-full border border-slate-300 ring-2 ring-slate-100 shadow-2xs shrink-0 transition-colors"
+              style={{ backgroundColor: hexSeleccionado }}
+              title={`${seleccionado.nombreColor} (${hexSeleccionado})`}
             />
           )}
-          <span className="truncate">
+          <span className="truncate font-semibold text-slate-800">
             {seleccionado ? seleccionado.nombreColor : 'Elegir color...'}
           </span>
         </span>
@@ -150,19 +159,29 @@ export function ColorSelector({
       </button>
 
       {abierto && (
-        <div className="absolute z-40 mt-1 w-full min-w-[260px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+        <div className="absolute z-50 mt-1 w-full min-w-[270px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
           <div className="p-2 border-b border-slate-100">
-            <div className="relative">
+            <div className="relative flex items-center">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 ref={inputRef}
                 type="text"
                 value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
+                onChange={(e) => {
+                  setBusqueda(e.target.value);
+                  setHexManual(false);
+                }}
                 onKeyDown={onKeyDown}
-                placeholder="Buscar o crear color..."
-                className="w-full pl-8 pr-2 py-1.5 text-xs rounded-lg border border-slate-200 focus:border-rose-300 outline-none"
+                placeholder="Ej: verde agua, rojo, azul marino..."
+                className="w-full pl-8 pr-8 py-1.5 text-xs rounded-lg border border-slate-200 focus:border-rose-300 outline-none"
               />
+              {textoBusqueda && (
+                <span
+                  className="w-4 h-4 rounded-full border border-slate-300 ring-1 ring-slate-200 absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors"
+                  style={{ backgroundColor: hexNuevo }}
+                  title={`Color detectado: ${hexNuevo}`}
+                />
+              )}
             </div>
           </div>
 
@@ -170,6 +189,7 @@ export function ColorSelector({
             {filtrados.map((c, i) => {
               const activo = i === indiceActivo;
               const esSeleccionado = c.codColor === Number(value);
+              const hexColor = mapearTextoAColorHex(c.nombreColor, c.codigoHex);
               return (
                 <li key={c.codColor} role="option" aria-selected={esSeleccionado}>
                   <button
@@ -182,8 +202,8 @@ export function ColorSelector({
                   >
                     <span className="flex items-center gap-2 min-w-0">
                       <span
-                        className="w-3 h-3 rounded-full border border-slate-300 shrink-0"
-                        style={{ backgroundColor: c.codigoHex }}
+                        className="w-3.5 h-3.5 rounded-full border border-slate-300 ring-1 ring-slate-100 shrink-0"
+                        style={{ backgroundColor: hexColor }}
                       />
                       <span className="truncate">{c.nombreColor}</span>
                     </span>
@@ -201,17 +221,28 @@ export function ColorSelector({
               <li className="border-t border-slate-100 mt-1 pt-1">
                 <div
                   onMouseEnter={() => setIndiceActivo(filtrados.length)}
-                  className={`px-3 py-2 flex items-center gap-2 ${
+                  className={`px-3 py-2 flex items-center gap-2.5 ${
                     indiceActivo === filtrados.length ? 'bg-emerald-50' : ''
                   }`}
                 >
-                  <input
-                    type="color"
-                    value={hexNuevo}
-                    onChange={(e) => setHexNuevo(e.target.value)}
-                    title="Elegí el tono del nuevo color"
-                    className="w-6 h-6 rounded border border-slate-300 cursor-pointer shrink-0 p-0"
-                  />
+                  <label
+                    className="relative flex items-center justify-center cursor-pointer shrink-0"
+                    title="Tono detectado automáticamente (clic para ajustar manualmente)"
+                  >
+                    <span
+                      className="w-6 h-6 rounded-full border-2 border-white ring-2 ring-slate-300 shadow-xs block transition-colors"
+                      style={{ backgroundColor: hexNuevo }}
+                    />
+                    <input
+                      type="color"
+                      value={hexNuevo}
+                      onChange={(e) => {
+                        setHexManual(true);
+                        setHexNuevo(e.target.value);
+                      }}
+                      className="sr-only"
+                    />
+                  </label>
                   <button
                     type="button"
                     onClick={crear}
@@ -220,7 +251,7 @@ export function ColorSelector({
                   >
                     <Plus className="w-3.5 h-3.5 shrink-0" />
                     <span className="break-words">
-                      {creando ? 'Creando...' : `Crear nuevo color: "${textoBusqueda}"`}
+                      {creando ? 'Creando...' : `Crear color "${textoBusqueda}"`}
                     </span>
                   </button>
                 </div>

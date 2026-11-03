@@ -29,6 +29,7 @@ import {
 import { useAppConfig } from '@/components/layout/AppShell';
 import { ImagenProducto } from '@/components/tienda/ImagenProducto';
 import { SkeletonGrillaProductos } from '@/components/tienda/TiendaSkeleton';
+import { mapearTextoAColorHex } from '@/lib/colores';
 import type { VidrieraPublica } from '@/lib/services/tienda.service';
 
 interface VariantePublica {
@@ -143,12 +144,62 @@ function resolverDireccionMaps(valor?: string | null): { url: string; etiqueta: 
   };
 }
 
+interface ColorUnicoProducto {
+  codColor: number;
+  nombreColor: string;
+  codigoHex: string;
+  imagenColor: string | null;
+  stockTotalColor: number;
+}
+
+function obtenerColoresUnicosProducto(prod: ProductoPublico): ColorUnicoProducto[] {
+  const vistos = new Set<number>();
+  const colores: ColorUnicoProducto[] = [];
+
+  for (const v of prod.variantes) {
+    const codColor = v.color.codColor;
+    if (!vistos.has(codColor)) {
+      vistos.add(codColor);
+      const variantesDelColor = prod.variantes.filter((x) => x.color.codColor === codColor);
+      const conImagen = variantesDelColor.find(
+        (x) => x.imagenVariante && x.imagenVariante.trim() !== ''
+      );
+      const stockTotalColor = variantesDelColor.reduce((acc, x) => acc + x.stock, 0);
+      colores.push({
+        codColor,
+        nombreColor: v.color.nombreColor,
+        codigoHex: mapearTextoAColorHex(v.color.nombreColor, v.color.codigoHex),
+        imagenColor: conImagen?.imagenVariante ?? null,
+        stockTotalColor,
+      });
+    }
+  }
+
+  return colores;
+}
+
+function colorInicialPorProducto(listaProds: ProductoPublico[]): Record<number, number> {
+  const seleccion: Record<number, number> = {};
+  for (const p of listaProds) {
+    if (p.variantes.length > 0) {
+      // Color de la primera variante disponible por defecto
+      const primeraDisponible = p.variantes.find((v) => v.stock > 0) || p.variantes[0];
+      seleccion[p.codProducto] = primeraDisponible.color.codColor;
+    }
+  }
+  return seleccion;
+}
+
 function varianteInicialPorProducto(listaProds: ProductoPublico[]): Record<number, number> {
   const seleccion: Record<number, number> = {};
   for (const p of listaProds) {
     if (p.variantes.length > 0) {
-      const conStock = p.variantes.find((v) => v.stock > 0);
-      seleccion[p.codProducto] = (conStock || p.variantes[0]).codVariante;
+      const primeraDisponible = p.variantes.find((v) => v.stock > 0) || p.variantes[0];
+      const codColorInicial = primeraDisponible.color.codColor;
+      const conStockDelColor = p.variantes.find(
+        (v) => v.color.codColor === codColorInicial && v.stock > 0
+      );
+      seleccion[p.codProducto] = conStockDelColor ? conStockDelColor.codVariante : 0;
     }
   }
   return seleccion;
@@ -187,7 +238,10 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
   const [sidebarMovilAbierta, setSidebarMovilAbierta] = useState(false);
   const [categoriasDesplegado, setCategoriasDesplegado] = useState(true);
 
-  // Selección de variante activa (codVariante) por cada producto en el catálogo
+  // Selección de color activo (codColor) y variante activa (codVariante) por cada producto
+  const [colorSeleccionadoPorProd, setColorSeleccionadoPorProd] = useState<Record<number, number>>(
+    () => colorInicialPorProducto(productosIniciales)
+  );
   const [varianteSeleccionadaPorProd, setVarianteSeleccionadaPorProd] = useState<
     Record<number, number>
   >(() => varianteInicialPorProducto(productosIniciales));
@@ -223,13 +277,27 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
       setTotalPaginas(data.pagination?.totalPages ?? 1);
       setTotalItems(data.pagination?.totalItems ?? listaProds.length);
 
-      // Inicializar la primera variante con stock (o la primera disponible) por cada prenda
-      setVarianteSeleccionadaPorProd((prev) => {
+      // Inicializar el color y la primera variante con stock por cada prenda
+      setColorSeleccionadoPorProd((prev) => {
         const next = { ...prev };
         for (const p of listaProds) {
           if (!next[p.codProducto] && p.variantes.length > 0) {
-            const conStock = p.variantes.find((v) => v.stock > 0);
-            next[p.codProducto] = (conStock || p.variantes[0]).codVariante;
+            const primeraDisponible = p.variantes.find((v) => v.stock > 0) || p.variantes[0];
+            next[p.codProducto] = primeraDisponible.color.codColor;
+          }
+        }
+        return next;
+      });
+      setVarianteSeleccionadaPorProd((prev) => {
+        const next = { ...prev };
+        for (const p of listaProds) {
+          if (next[p.codProducto] === undefined && p.variantes.length > 0) {
+            const primeraDisponible = p.variantes.find((v) => v.stock > 0) || p.variantes[0];
+            const codColorInicial = primeraDisponible.color.codColor;
+            const conStockDelColor = p.variantes.find(
+              (v) => v.color.codColor === codColorInicial && v.stock > 0
+            );
+            next[p.codProducto] = conStockDelColor ? conStockDelColor.codVariante : 0;
           }
         }
         return next;
@@ -249,9 +317,50 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
     cargarVidriera();
   }, [cargarVidriera]);
 
-  const obtenerVarianteActiva = (prod: ProductoPublico): VariantePublica | undefined => {
-    const idSel = varianteSeleccionadaPorProd[prod.codProducto];
-    return prod.variantes.find((v) => v.codVariante === idSel) || prod.variantes[0];
+  const seleccionarColorProducto = (prod: ProductoPublico, codColor: number) => {
+    setColorSeleccionadoPorProd((prev) => ({
+      ...prev,
+      [prod.codProducto]: codColor,
+    }));
+    const variantesDelColor = prod.variantes.filter((v) => v.color.codColor === codColor);
+    const primeraConStock = variantesDelColor.find((v) => v.stock > 0);
+    setVarianteSeleccionadaPorProd((prev) => ({
+      ...prev,
+      [prod.codProducto]: primeraConStock ? primeraConStock.codVariante : 0,
+    }));
+  };
+
+  const obtenerEstadoSeleccionProducto = (prod: ProductoPublico) => {
+    const coloresUnicos = obtenerColoresUnicosProducto(prod);
+    const codColorElegido =
+      colorSeleccionadoPorProd[prod.codProducto] ?? coloresUnicos[0]?.codColor ?? 0;
+    const colorActivo =
+      coloresUnicos.find((c) => c.codColor === codColorElegido) || coloresUnicos[0];
+
+    const variantesDelColor = prod.variantes.filter(
+      (v) => v.color.codColor === (colorActivo?.codColor ?? codColorElegido)
+    );
+
+    const idVarSel = varianteSeleccionadaPorProd[prod.codProducto];
+    const varianteActiva =
+      variantesDelColor.find((v) => v.codVariante === idVarSel && v.stock > 0) ||
+      variantesDelColor.find((v) => v.stock > 0) ||
+      undefined;
+
+    const imagenMostrar =
+      (varianteActiva?.imagenVariante && varianteActiva.imagenVariante.trim() !== ''
+        ? varianteActiva.imagenVariante
+        : null) ||
+      colorActivo?.imagenColor ||
+      prod.imagen;
+
+    return {
+      coloresUnicos,
+      colorActivo,
+      variantesDelColor,
+      varianteActiva,
+      imagenMostrar,
+    };
   };
 
   // Construir link directo de WhatsApp para una sola prenda + talle + color
@@ -655,13 +764,15 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
             {productos.map((prod, indiceProd) => {
-              const varianteActiva = obtenerVarianteActiva(prod);
-              const imagenMostrar =
-                varianteActiva?.imagenVariante && varianteActiva.imagenVariante.trim() !== ''
-                  ? varianteActiva.imagenVariante
-                  : prod.imagen;
+              const {
+                coloresUnicos,
+                colorActivo,
+                variantesDelColor,
+                varianteActiva,
+                imagenMostrar,
+              } = obtenerEstadoSeleccionProducto(prod);
               const stockVariante = varianteActiva?.stock ?? 0;
-              const sinStockVariante = stockVariante <= 0;
+              const sinStockVariante = !varianteActiva || stockVariante <= 0;
               const fueAgregadoRecien = agregadoFeedback === prod.codProducto;
 
               return (
@@ -723,11 +834,17 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                         )}
                       </div>
 
-                      {/* Selector de Combinación Talle + Color */}
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-bold text-slate-700">Elegí Talle y Color:</span>
-                          {varianteActiva && (
+                      {/* Selector Dinámico de Color y Talles */}
+                      <div className="space-y-2.5">
+                        {/* 1. Selector de Color */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-bold text-slate-700">
+                              Color:{' '}
+                              <strong className="text-slate-900">
+                                {colorActivo?.nombreColor || 'Único'}
+                              </strong>
+                            </span>
                             <span
                               className={`font-semibold ${
                                 stockVariante > 2
@@ -743,42 +860,74 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                                 ? `¡Últimas ${stockVariante} u.!`
                                 : 'Agotado'}
                             </span>
-                          )}
+                          </div>
+
+                          <div className="flex flex-wrap gap-1.5">
+                            {coloresUnicos.map((c) => {
+                              const esColorActivo = colorActivo?.codColor === c.codColor;
+                              return (
+                                <button
+                                  key={c.codColor}
+                                  type="button"
+                                  onClick={() => seleccionarColorProducto(prod, c.codColor)}
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+                                    esColorActivo
+                                      ? 'border-rose-600 bg-rose-50 text-rose-900 ring-1 ring-rose-500'
+                                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'
+                                  }`}
+                                  title={`Ver en color ${c.nombreColor}`}
+                                >
+                                  <span
+                                    className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0 shadow-2xs"
+                                    style={{ backgroundColor: c.codigoHex }}
+                                  />
+                                  <span>{c.nombreColor}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-1.5">
-                          {prod.variantes.map((v) => {
-                            const seleccionada = varianteActiva?.codVariante === v.codVariante;
-                            const agotada = v.stock <= 0;
-                            return (
-                              <button
-                                key={v.codVariante}
-                                type="button"
-                                onClick={() =>
-                                  setVarianteSeleccionadaPorProd((prev) => ({
-                                    ...prev,
-                                    [prod.codProducto]: v.codVariante,
-                                  }))
-                                }
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
-                                  seleccionada
-                                    ? 'border-rose-600 bg-rose-50 text-rose-900 ring-1 ring-rose-500'
-                                    : agotada
-                                    ? 'border-slate-200 bg-slate-100 text-slate-400 line-through opacity-70'
-                                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'
-                                }`}
-                              >
-                                <span
-                                  className="w-2.5 h-2.5 rounded-full border border-slate-300 shrink-0"
-                                  style={{ backgroundColor: v.color.codigoHex || '#111827' }}
-                                />
-                                <span>{v.talle.nombreTalle}</span>
-                                <span className="text-[10px] font-medium text-slate-500">
-                                  {v.color.nombreColor}
-                                </span>
-                              </button>
-                            );
-                          })}
+                        {/* 2. Talles disponibles para el color seleccionado */}
+                        <div className="space-y-1">
+                          <span className="block text-[11px] font-bold text-slate-700">
+                            Talles para {colorActivo?.nombreColor || 'este color'}:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {variantesDelColor.map((v) => {
+                              const agotada = v.stock <= 0;
+                              const seleccionada =
+                                !agotada && varianteActiva?.codVariante === v.codVariante;
+                              return (
+                                <button
+                                  key={v.codVariante}
+                                  type="button"
+                                  disabled={agotada}
+                                  onClick={() => {
+                                    if (agotada) return;
+                                    setVarianteSeleccionadaPorProd((prev) => ({
+                                      ...prev,
+                                      [prod.codProducto]: v.codVariante,
+                                    }));
+                                  }}
+                                  title={
+                                    agotada
+                                      ? `Talle ${v.talle.nombreTalle} sin stock en ${v.color.nombreColor}`
+                                      : `Talle ${v.talle.nombreTalle} (${v.stock} disponibles)`
+                                  }
+                                  className={`inline-flex items-center justify-center min-w-[2.25rem] px-2.5 py-1 rounded-lg text-xs font-bold border transition ${
+                                    agotada
+                                      ? 'border-slate-200 bg-slate-100 text-slate-400 line-through opacity-50 cursor-not-allowed'
+                                      : seleccionada
+                                      ? 'border-rose-600 bg-rose-600 text-white shadow-2xs cursor-pointer'
+                                      : 'border-slate-200 bg-white text-slate-700 hover:border-rose-400 cursor-pointer'
+                                  }`}
+                                >
+                                  {v.talle.nombreTalle}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1103,21 +1252,23 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
             className="bg-white rounded-2xl border border-slate-200 max-w-2xl w-full overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2"
           >
             {(() => {
-              const varModal = obtenerVarianteActiva(productoDetalleModal);
-              const imgModal =
-                varModal?.imagenVariante && varModal.imagenVariante.trim() !== ''
-                  ? varModal.imagenVariante
-                  : productoDetalleModal.imagen;
+              const {
+                coloresUnicos: coloresModal,
+                colorActivo: colorModal,
+                variantesDelColor: variantesDelColorModal,
+                varianteActiva: varModal,
+                imagenMostrar: imgModal,
+              } = obtenerEstadoSeleccionProducto(productoDetalleModal);
 
               return (
                 <>
                   <div className="relative h-72 md:h-full bg-slate-100">
                     <ImagenProducto
                       src={imgModal}
-                      alt={productoDetalleModal.nombre}
+                      alt={`${productoDetalleModal.nombre} - ${colorModal?.nombreColor || ''}`}
                       fill
                       sizes="(min-width: 768px) 50vw, 100vw"
-                      className="object-cover"
+                      className="object-cover transition-all duration-300"
                     />
                   </div>
 
@@ -1156,38 +1307,83 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                         )}
                       </div>
 
+                      {/* Selector de Color */}
                       <div className="space-y-2 pt-1">
                         <label className="block text-xs font-bold text-slate-700">
-                          Seleccioná Talle y Color:
+                          1. Color seleccionado:{' '}
+                          <span className="text-rose-600">
+                            {colorModal?.nombreColor || 'Único'}
+                          </span>
                         </label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {productoDetalleModal.variantes.map((v) => {
-                            const sel = varModal?.codVariante === v.codVariante;
-                            const agotada = v.stock <= 0;
+                        <div className="flex flex-wrap gap-2">
+                          {coloresModal.map((c) => {
+                            const esActivo = colorModal?.codColor === c.codColor;
                             return (
                               <button
-                                key={v.codVariante}
+                                key={c.codColor}
                                 type="button"
                                 onClick={() =>
-                                  setVarianteSeleccionadaPorProd((prev) => ({
-                                    ...prev,
-                                    [productoDetalleModal.codProducto]: v.codVariante,
-                                  }))
+                                  seleccionarColorProducto(productoDetalleModal, c.codColor)
                                 }
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                                  sel
-                                    ? 'border-rose-600 bg-rose-50 text-rose-900 ring-1 ring-rose-500'
-                                    : agotada
-                                    ? 'border-slate-200 bg-slate-100 text-slate-400 line-through'
+                                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border transition cursor-pointer ${
+                                  esActivo
+                                    ? 'border-rose-600 bg-rose-50 text-rose-900 ring-2 ring-rose-500/40'
                                     : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'
                                 }`}
                               >
                                 <span
-                                  className="w-3 h-3 rounded-full border border-slate-300"
-                                  style={{ backgroundColor: v.color.codigoHex || '#111827' }}
+                                  className="w-4 h-4 rounded-full border border-slate-300 shadow-2xs shrink-0"
+                                  style={{ backgroundColor: c.codigoHex }}
                                 />
+                                <span>{c.nombreColor}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Selector de Talles exclusivos para el color seleccionado */}
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-xs font-bold text-slate-700">
+                            2. Talles disponibles en {colorModal?.nombreColor || 'este color'}:
+                          </label>
+                          {varModal ? (
+                            <span className="text-[11px] font-semibold text-emerald-700">
+                              {varModal.stock} u. en stock
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-semibold text-rose-600">
+                              Sin stock en este color
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {variantesDelColorModal.map((v) => {
+                            const agotada = v.stock <= 0;
+                            const sel = !agotada && varModal?.codVariante === v.codVariante;
+                            return (
+                              <button
+                                key={v.codVariante}
+                                type="button"
+                                disabled={agotada}
+                                onClick={() => {
+                                  if (agotada) return;
+                                  setVarianteSeleccionadaPorProd((prev) => ({
+                                    ...prev,
+                                    [productoDetalleModal.codProducto]: v.codVariante,
+                                  }));
+                                }}
+                                className={`inline-flex items-center justify-center gap-1.5 min-w-[3rem] px-3.5 py-2 rounded-xl text-xs font-bold border transition ${
+                                  agotada
+                                    ? 'border-slate-200 bg-slate-100 text-slate-400 line-through opacity-50 cursor-not-allowed'
+                                    : sel
+                                    ? 'border-rose-600 bg-rose-600 text-white shadow-xs cursor-pointer'
+                                    : 'border-slate-200 bg-white text-slate-700 hover:border-rose-400 cursor-pointer'
+                                }`}
+                              >
                                 <span>Talle {v.talle.nombreTalle}</span>
-                                <span className="text-slate-500">• {v.color.nombreColor}</span>
+                                {agotada && <span className="text-[10px]">(Sin stock)</span>}
                               </button>
                             );
                           })}

@@ -6,6 +6,7 @@ import {
   evaluarReseteoAlertaStock,
   evaluarYDispararAlertaStock,
 } from '@/lib/services/whatsapp.service';
+import { mapearTextoAColorHex } from '@/lib/colores';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -338,21 +339,20 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
-      const hexValido = /^#[0-9a-fA-F]{6}$/.test(String(body.codigoHex || ''))
-        ? String(body.codigoHex)
-        : '#111827';
+      const hexValido = mapearTextoAColorHex(nombreColor, String(body.codigoHex || ''));
 
       // Si ya existe un color con ese nombre (sin distinguir mayúsculas), se reutiliza
       const existente = await prisma.color.findFirst({
         where: { nombreColor: { equals: nombreColor, mode: 'insensitive' } },
       });
       if (existente) {
-        const color = existente.fechaHoraBajaColor
-          ? await prisma.color.update({
-              where: { codColor: existente.codColor },
-              data: { fechaHoraBajaColor: null },
-            })
-          : existente;
+        const color = await prisma.color.update({
+          where: { codColor: existente.codColor },
+          data: {
+            fechaHoraBajaColor: null,
+            codigoHex: mapearTextoAColorHex(existente.nombreColor, hexValido),
+          },
+        });
         return NextResponse.json(color);
       }
 
@@ -467,6 +467,19 @@ export async function POST(request: Request) {
         imagenVariante: v.imagenVariante || null,
         alertaStockEnviada: Number(v.stock ?? 0) < 3,
       });
+    }
+
+    // Reutilizar automáticamente la imagen cargada entre variantes del mismo color
+    const imagenPorColor = new Map<number, string>();
+    for (const v of variantesValidadas) {
+      if (v.imagenVariante && !imagenPorColor.has(v.codColor)) {
+        imagenPorColor.set(v.codColor, v.imagenVariante);
+      }
+    }
+    for (const v of variantesValidadas) {
+      if (!v.imagenVariante && imagenPorColor.has(v.codColor)) {
+        v.imagenVariante = imagenPorColor.get(v.codColor) || null;
+      }
     }
 
     const primeraImagenVariante = variantesValidadas.find((v) => v.imagenVariante)?.imagenVariante;
