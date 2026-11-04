@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Tag,
   X,
@@ -15,6 +15,11 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { ColorSelector, type ColorOpcion } from '@/components/catalogo/ColorSelector';
+import {
+  CategoriaSelector,
+  agregarCategoria,
+  type CategoriaOpcion,
+} from '@/components/catalogo/CategoriaSelector';
 import {
   calcularPrecioNetoConDescuento,
   calcularPrecioSugerido,
@@ -80,6 +85,8 @@ interface NuevaPrendaModalProps {
    * stock se sumaría dos veces: al crear la prenda y al registrar la factura).
    */
   modoIngresoFactura?: boolean;
+  /** Avisa a la pantalla que abrió el modal que se creó una categoría (para sus filtros). */
+  onCategoriaCreada?: (categoria: CategoriaOpcion) => void;
   marcasIniciales: { codMarca: number; nombreMarca: string }[];
   categorias: {
     codCategoria: number;
@@ -116,7 +123,13 @@ export function NuevaPrendaModal({
   codProveedorPreseleccionado,
   zIndexClass = 'z-50',
   modoIngresoFactura = false,
+  onCategoriaCreada,
 }: NuevaPrendaModalProps) {
+  // Lista propia para que una categoría creada desde el selector aparezca al instante
+  const [categoriasLocales, setCategoriasLocales] = useState<CategoriaOpcion[]>(categorias);
+  useEffect(() => {
+    setCategoriasLocales(categorias);
+  }, [categorias]);
   const [marcas, setMarcas] = useState(marcasIniciales);
   const [descuentos, setDescuentos] = useState(descuentosIniciales);
   const [proveedores, setProveedores] = useState(proveedoresIniciales);
@@ -178,9 +191,37 @@ export function NuevaPrendaModal({
 
   const [listaVariantesNuevas, setListaVariantesNuevas] = useState<VarianteNuevaRow[]>([]);
 
-  // Inicializar el formulario cada vez que se abre el modal
+  // Si el modal se abrió antes de que llegaran los datos, completar categoría y marca
   useEffect(() => {
     if (!abierto) return;
+    setNuevoProdForm((prev) => {
+      if (prev.codCategoria && prev.codMarca) return prev;
+      const cat = prev.codCategoria ? null : categorias[0];
+      const codMarca = prev.codMarca || marcasIniciales[0]?.codMarca || 0;
+      if (!cat && codMarca === prev.codMarca) return prev;
+      const mk = cat?.markupPorDefectoCategoria ?? prev.porcentajeMarkup;
+      return {
+        ...prev,
+        codMarca,
+        ...(cat
+          ? {
+              codCategoria: cat.codCategoria,
+              porcentajeMarkup: mk,
+              precio: calcularPrecioSugerido(prev.precioCosto, mk),
+            }
+          : {}),
+      };
+    });
+  }, [abierto, categorias, marcasIniciales]);
+
+  // Inicializar el formulario cada vez que se abre el modal. Solo al abrirlo: si la
+  // pantalla actualiza sus listas (por ejemplo, una categoría creada desde acá), el
+  // formulario no se borra.
+  const estabaAbierto = useRef(false);
+  useEffect(() => {
+    const recienAbierto = abierto && !estabaAbierto.current;
+    estabaAbierto.current = abierto;
+    if (!recienAbierto) return;
     const mkInicial = categorias[0]?.markupPorDefectoCategoria ?? 125;
     const talleInicial = talles[0]?.codTalle ?? 0;
     const colorInicial = coloresIniciales[0]?.codColor ?? 0;
@@ -572,27 +613,24 @@ export function NuevaPrendaModal({
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Categoría</label>
-              <select
+              <CategoriaSelector
+                categorias={categoriasLocales}
                 value={nuevoProdForm.codCategoria}
-                onChange={(e) => {
-                  const catId = Number(e.target.value);
-                  const cat = categorias.find((c) => c.codCategoria === catId);
-                  const mk = cat?.markupPorDefectoCategoria ?? 120;
-                  setNuevoProdForm({
-                    ...nuevoProdForm,
-                    codCategoria: catId,
+                onChange={(cat) => {
+                  const mk = cat.markupPorDefectoCategoria ?? 120;
+                  // Actualización funcional: la categoría nueva llega después de un await
+                  setNuevoProdForm((prev) => ({
+                    ...prev,
+                    codCategoria: cat.codCategoria,
                     porcentajeMarkup: mk,
-                    precio: calcularPrecioSugerido(nuevoProdForm.precioCosto, mk),
-                  });
+                    precio: calcularPrecioSugerido(prev.precioCosto, mk),
+                  }));
                 }}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white"
-              >
-                {categorias.map((c) => (
-                  <option key={c.codCategoria} value={c.codCategoria}>
-                    {c.nombreCategoria}
-                  </option>
-                ))}
-              </select>
+                onCategoriaCreada={(cat) => {
+                  setCategoriasLocales((prev) => agregarCategoria(prev, cat));
+                  onCategoriaCreada?.(cat);
+                }}
+              />
             </div>
 
             <div>

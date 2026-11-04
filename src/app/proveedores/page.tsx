@@ -32,6 +32,7 @@ import {
   type NuevoProductoCreado,
 } from '@/components/catalogo/NuevaPrendaModal';
 import type { ColorOpcion } from '@/components/catalogo/ColorSelector';
+import { agregarCategoria } from '@/components/catalogo/CategoriaSelector';
 import { comprimirImagen } from '@/lib/comprimirImagen';
 import { mapearTextoAColorHex } from '@/lib/colores';
 
@@ -1747,6 +1748,16 @@ export default function ProveedoresFacturasPage() {
         zIndexClass="z-[60]"
         onSuccess={handleNuevaPrendaCreadaParaFactura}
         modoIngresoFactura
+        // Una categoría creada desde la factura aparece al instante en el filtro del selector
+        onCategoriaCreada={(cat) =>
+          setCategoriasCat((prev) =>
+            agregarCategoria(prev, {
+              codCategoria: cat.codCategoria,
+              nombreCategoria: cat.nombreCategoria,
+              markupPorDefectoCategoria: cat.markupPorDefectoCategoria,
+            })
+          )
+        }
       />
     </div>
   );

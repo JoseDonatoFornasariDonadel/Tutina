@@ -51,14 +51,15 @@ export async function obtenerVidrieraPublica(filtros: FiltrosVidriera = {}) {
     ...(q
       ? {
           OR: [
-            { nombre: { contains: q } },
-            { descripcion: { contains: q } },
-            { marca: { nombreMarca: { contains: q } } },
-            { categoria: { nombreCategoria: { contains: q } } },
+            { nombre: { contains: q, mode: 'insensitive' } },
+            { descripcion: { contains: q, mode: 'insensitive' } },
+            { marca: { nombreMarca: { contains: q, mode: 'insensitive' } } },
+            { categoria: { nombreCategoria: { contains: q, mode: 'insensitive' } } },
           ],
         }
       : {}),
-    ...(codCategoria && codCategoria !== 'TODAS'
+    // Filtro por categoría (clave foránea de Producto). Un valor inválido se ignora.
+    ...(Number.isInteger(Number(codCategoria)) && Number(codCategoria) > 0
       ? { codCategoria: Number(codCategoria) }
       : {}),
     ...(codMarca && codMarca !== 'TODAS' ? { codMarca: Number(codMarca) } : {}),
@@ -171,6 +172,9 @@ export async function obtenerVidrieraPublica(filtros: FiltrosVidriera = {}) {
   });
 
   return {
+    // Momento en que se armaron estos datos. La página de la tienda se regenera cuando el
+    // panel cambia el catálogo, así que este valor cambia con cada cambio de datos.
+    generadoEn: new Date().toISOString(),
     tienda: {
       nombreComercial: config?.nombreComercial ?? 'Tutina',
       logoUrl: config?.logoUrl ?? '/tutina-logo.svg',

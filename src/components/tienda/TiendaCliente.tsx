@@ -227,6 +227,7 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
     datosIniciales?.categorias ?? []
   );
   const [loading, setLoading] = useState(!datosIniciales);
+  const versionDatos = datosIniciales?.generadoEn ?? '';
 
   // Filtros, Barra Lateral y Paginación
   const [busqueda, setBusqueda] = useState('');
@@ -266,6 +267,9 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
       });
       if (busqueda.trim()) params.set('q', busqueda.trim());
       if (filtroCategoria !== 'TODAS') params.set('codCategoria', filtroCategoria);
+      // La CDN guarda cada consulta 60 s. Con la versión de los datos en la URL, después de
+      // un cambio en el catálogo (categoría nueva, prenda movida) se piden datos nuevos.
+      if (versionDatos) params.set('v', versionDatos);
 
       const res = await fetch(`/api/tienda?${params.toString()}`);
       const data = await res.json();
@@ -305,7 +309,7 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
     } finally {
       setLoading(false);
     }
-  }, [paginaActual, orden, busqueda, filtroCategoria]);
+  }, [paginaActual, orden, busqueda, filtroCategoria, versionDatos]);
 
   // La primera página ya llegó desde el servidor: no se vuelve a pedir al montar
   const omitirPrimeraCarga = useRef(Boolean(datosIniciales));
