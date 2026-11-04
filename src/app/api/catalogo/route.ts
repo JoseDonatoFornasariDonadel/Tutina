@@ -27,13 +27,14 @@ export async function GET(request: Request) {
     ...(q
       ? {
           OR: [
-            { nombre: { contains: q } },
-            { descripcion: { contains: q } },
-            { variantes: { some: { sku: { contains: q } } } },
+            { nombre: { contains: q, mode: 'insensitive' } },
+            { descripcion: { contains: q, mode: 'insensitive' } },
+            { variantes: { some: { sku: { contains: q, mode: 'insensitive' } } } },
           ],
         }
       : {}),
-    ...(codCategoria && codCategoria !== 'TODAS'
+    // Filtro por categoría (clave foránea de Producto). Un valor inválido se ignora.
+    ...(Number.isInteger(Number(codCategoria)) && Number(codCategoria) > 0
       ? { codCategoria: Number(codCategoria) }
       : {}),
     ...(codMarca && codMarca !== 'TODAS' ? { codMarca: Number(codMarca) } : {}),
@@ -106,7 +107,10 @@ export async function GET(request: Request) {
       },
       orderBy: { nombreMarca: 'asc' },
     }),
-    prisma.categoria.findMany({ where: { fechaHoraBajaCat: null } }),
+    prisma.categoria.findMany({
+      where: { fechaHoraBajaCat: null },
+      orderBy: { nombreCategoria: 'asc' },
+    }),
     prisma.temporada.findMany({ where: { fechaHoraBajaTemp: null } }),
     prisma.descuento.findMany({ where: { fechaHoraBajaDesc: null } }),
     prisma.proveedor.findMany({ where: { fechaHoraBajaProv: null } }),
@@ -327,6 +331,61 @@ export async function POST(request: Request) {
         },
       });
       return NextResponse.json(nuevaMarca);
+    }
+
+    // 1b. Alta de Nueva Categoría (desde los selectores con "Crear: ...")
+    if (body.tipoAlta === 'CATEGORIA') {
+      const nombreCategoria = String(body.nombreCategoria || '')
+        .trim()
+        .replace(/\s+/g, ' ');
+      if (!nombreCategoria) {
+        return NextResponse.json(
+          { error: 'El nombre de la categoría es obligatorio.' },
+          { status: 400 }
+        );
+      }
+      if (nombreCategoria.length > 60) {
+        return NextResponse.json(
+          { error: 'El nombre de la categoría no puede superar los 60 caracteres.' },
+          { status: 400 }
+        );
+      }
+
+      // Si ya existe con ese nombre (sin distinguir mayúsculas), se reutiliza
+      const existente = await prisma.categoria.findFirst({
+        where: { nombreCategoria: { equals: nombreCategoria, mode: 'insensitive' } },
+        orderBy: { fechaHoraBajaCat: { sort: 'asc', nulls: 'first' } },
+      });
+      if (existente) {
+        const categoria = existente.fechaHoraBajaCat
+          ? await prisma.categoria.update({
+              where: { codCategoria: existente.codCategoria },
+              data: { fechaHoraBajaCat: null },
+            })
+          : existente;
+        revalidatePath('/tienda');
+        return NextResponse.json(categoria);
+      }
+
+      const config = await prisma.configuracionTienda.findFirst({
+        select: { markupPorDefectoGlobal: true },
+      });
+      const markupBody = Number(body.markupPorDefectoCategoria);
+      const nuevaCategoria = await prisma.categoria.create({
+        data: {
+          nombreCategoria,
+          markupPorDefectoCategoria:
+            Number.isFinite(markupBody) && markupBody > 0
+              ? markupBody
+              : config?.markupPorDefectoGlobal ?? 120,
+          ...(typeof body.rubro === 'string' && body.rubro.trim()
+            ? { rubro: body.rubro.trim() }
+            : {}),
+        },
+      });
+      // La tienda muestra todas las categorías activas en sus filtros
+      revalidatePath('/tienda');
+      return NextResponse.json(nuevaCategoria);
     }
 
     // 2. Alta de Nuevo Descuento

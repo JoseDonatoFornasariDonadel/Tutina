@@ -25,6 +25,11 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { ColorSelector, type ColorOpcion } from '@/components/catalogo/ColorSelector';
+import {
+  CategoriaSelector,
+  agregarCategoria,
+  type CategoriaOpcion,
+} from '@/components/catalogo/CategoriaSelector';
 import { NuevaPrendaModal } from '@/components/catalogo/NuevaPrendaModal';
 import { mapearTextoAColorHex } from '@/lib/colores';
 import {
@@ -493,6 +498,17 @@ export default function CatalogoPage() {
     } finally {
       setEliminando(false);
     }
+  };
+
+  // Una categoría creada desde cualquier formulario aparece al instante en el filtro
+  const sumarCategoriaCreada = (cat: CategoriaOpcion) => {
+    setCategorias((prev) =>
+      agregarCategoria(prev, {
+        codCategoria: cat.codCategoria,
+        nombreCategoria: cat.nombreCategoria,
+        markupPorDefectoCategoria: cat.markupPorDefectoCategoria ?? 120,
+      })
+    );
   };
 
   const guardarEdicionProducto = async (e: React.FormEvent) => {
@@ -1436,22 +1452,30 @@ export default function CatalogoPage() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Categoría
                   </label>
-                  <select
+                  <CategoriaSelector
+                    categorias={categorias}
                     value={productoEditando.codCategoria}
-                    onChange={(e) =>
-                      setProductoEditando({
-                        ...productoEditando,
-                        codCategoria: Number(e.target.value),
-                      })
+                    onChange={(cat) =>
+                      // Se actualiza también el objeto categoría: lo usa el botón de markup por defecto
+                      setProductoEditando((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              codCategoria: cat.codCategoria,
+                              categoria: {
+                                ...prev.categoria,
+                                codCategoria: cat.codCategoria,
+                                nombreCategoria: cat.nombreCategoria,
+                                markupPorDefectoCategoria:
+                                  cat.markupPorDefectoCategoria ??
+                                  prev.categoria.markupPorDefectoCategoria,
+                              },
+                            }
+                          : prev
+                      )
                     }
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white"
-                  >
-                    {categorias.map((c) => (
-                      <option key={c.codCategoria} value={c.codCategoria}>
-                        {c.nombreCategoria}
-                      </option>
-                    ))}
-                  </select>
+                    onCategoriaCreada={sumarCategoriaCreada}
+                  />
                 </div>
 
                 <div>
@@ -1731,6 +1755,7 @@ export default function CatalogoPage() {
         proveedoresIniciales={proveedores}
         talles={talles}
         coloresIniciales={colores}
+        onCategoriaCreada={sumarCategoriaCreada}
         onSuccess={async (nuevoProd) => {
           setModalNuevoProd(false);
           setNotificacion({
