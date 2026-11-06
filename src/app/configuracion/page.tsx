@@ -345,6 +345,7 @@ export default function ConfiguracionPage() {
               </label>
               <input
                 type="number"
+                inputMode="numeric"
                 step="1"
                 value={form.markupPorDefectoGlobal}
                 onChange={(e) =>
@@ -363,6 +364,7 @@ export default function ConfiguracionPage() {
               </label>
               <input
                 type="number"
+                inputMode="numeric"
                 min={1}
                 value={form.umbralAlertaStockDefault}
                 onChange={(e) =>
@@ -382,6 +384,7 @@ export default function ConfiguracionPage() {
               </label>
               <input
                 type="number"
+                inputMode="numeric"
                 min={0}
                 max={365}
                 step={1}

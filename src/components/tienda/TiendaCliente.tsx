@@ -17,7 +17,6 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronUp,
-  Menu,
   Layers,
   MapPin,
   Instagram,
@@ -28,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useAppConfig } from '@/components/layout/AppShell';
 import { ImagenProducto } from '@/components/tienda/ImagenProducto';
+import { BottomSheet } from '@/components/mobile/BottomSheet';
 import { SkeletonGrillaProductos } from '@/components/tienda/TiendaSkeleton';
 import { mapearTextoAColorHex } from '@/lib/colores';
 import type { VidrieraPublica } from '@/lib/services/tienda.service';
@@ -499,29 +499,22 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
 
   const renderBarraLateralFiltros = (esMovil: boolean) => (
     <div className="space-y-5">
-      {/* Cabecera de la Barra Lateral */}
+      {/* Cabecera de la Barra Lateral (en móvil la pone el Bottom Sheet) */}
+      {!esMovil && (
       <div className="flex items-center justify-between pb-3 border-b border-slate-100">
         <div className="flex items-center gap-2">
           <SlidersHorizontal className="w-4 h-4 text-rose-600" />
           <h2 className="text-sm font-extrabold text-slate-900">Filtros del Catálogo</h2>
         </div>
-        {esMovil && (
-          <button
-            type="button"
-            onClick={() => setSidebarMovilAbierta(false)}
-            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-rose-600 cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
       </div>
+      )}
 
       {/* Desplegable de Categorías */}
       <div className="rounded-xl border border-slate-200 bg-slate-50/60 overflow-hidden">
         <button
           type="button"
           onClick={() => setCategoriasDesplegado((prev) => !prev)}
-          className="w-full px-3.5 py-3 flex items-center justify-between text-left bg-white border-b border-slate-100 hover:bg-slate-50 transition cursor-pointer"
+          className="w-full min-h-12 px-3.5 py-3 flex items-center justify-between text-left bg-white border-b border-slate-100 hover:bg-slate-50 transition cursor-pointer"
         >
           <div className="min-w-0">
             <span className="text-xs font-extrabold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
@@ -545,9 +538,10 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
               onClick={() => {
                 setFiltroCategoria('TODAS');
                 setPaginaActual(1);
-                if (esMovil) setSidebarMovilAbierta(false);
               }}
-              className={`nav-sidebar-item w-full text-left px-3 py-2 rounded-xl text-xs font-bold border-2 transition cursor-pointer flex items-center justify-between ${
+              className={`nav-sidebar-item w-full text-left px-3 rounded-xl font-bold ${
+                esMovil ? 'min-h-12 text-sm' : 'py-2 text-xs'
+              } border-2 transition cursor-pointer flex items-center justify-between ${
                 filtroCategoria === 'TODAS'
                   ? 'bg-rose-600 border-rose-600 text-white shadow-2xs'
                   : 'border-transparent text-slate-700'
@@ -566,9 +560,10 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                   onClick={() => {
                     setFiltroCategoria(String(cat.codCategoria));
                     setPaginaActual(1);
-                    if (esMovil) setSidebarMovilAbierta(false);
                   }}
-                  className={`nav-sidebar-item w-full text-left px-3 py-2 rounded-xl text-xs font-bold border-2 transition cursor-pointer flex items-center justify-between ${
+                  className={`nav-sidebar-item w-full text-left px-3 rounded-xl font-bold ${
+                    esMovil ? 'min-h-12 text-sm' : 'py-2 text-xs'
+                  } border-2 transition cursor-pointer flex items-center justify-between ${
                     activa
                       ? 'bg-rose-600 border-rose-600 text-white shadow-2xs'
                       : 'border-transparent text-slate-700'
@@ -593,7 +588,6 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
           onChange={(e) => {
             setOrden(e.target.value);
             setPaginaActual(1);
-            if (esMovil) setSidebarMovilAbierta(false);
           }}
           className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold bg-white"
         >
@@ -629,7 +623,7 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
       </div>
 
       {/* Header Público de la Tienda */}
-      <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-xs transition-colors duration-200">
+      <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-xs transition-colors duration-200 pt-safe">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4">
           {/* Botón Menú Lateral Móvil + Logo e Identidad */}
           <div className="flex items-center gap-2 shrink-0">
@@ -637,9 +631,10 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
               type="button"
               onClick={() => setSidebarMovilAbierta(true)}
               title="Abrir categorías y filtros"
-              className="lg:hidden p-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-slate-700 hover:border-rose-300 hover:text-rose-600 transition cursor-pointer shrink-0"
+              aria-label="Abrir categorías y filtros"
+              className="lg:hidden touch-target rounded-xl border border-slate-200 bg-slate-50/70 text-slate-700 hover:border-rose-300 hover:text-rose-600 transition cursor-pointer shrink-0"
             >
-              <Menu className="w-4 h-4" />
+              <SlidersHorizontal className="w-5 h-5" />
             </button>
 
             <div className="h-9 sm:h-12 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
@@ -720,20 +715,65 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
         </div>
       </header>
 
-      {/* Barra Lateral Desplegable (Drawer) para Versión Móvil */}
-      {sidebarMovilAbierta && (
-        <div
-          onClick={() => setSidebarMovilAbierta(false)}
-          className="fixed inset-0 z-50 lg:hidden bg-slate-900/60 backdrop-blur-xs flex"
-        >
-          <aside
-            onClick={(e) => e.stopPropagation()}
-            className="w-80 max-w-[85vw] bg-white h-full border-r border-slate-200 p-5 flex flex-col justify-between shadow-2xl overflow-y-auto"
-          >
-            {renderBarraLateralFiltros(true)}
-          </aside>
+      {/* Categorías como chips deslizables, a un toque, solo en móvil */}
+      <div className="lg:hidden sticky top-[calc(4rem+env(safe-area-inset-top,0px))] z-20 bg-slate-50/95 backdrop-blur-md border-b border-slate-200">
+        <div className="scroll-chips scroll-px-4 flex gap-2 px-4 py-2.5">
+          {[{ codCategoria: 'TODAS', nombreCategoria: 'Todas' }, ...categorias].map((cat) => {
+            const valor = String(cat.codCategoria);
+            const activa = filtroCategoria === valor;
+            return (
+              <button
+                key={valor}
+                type="button"
+                aria-pressed={activa}
+                onClick={() => {
+                  setFiltroCategoria(valor);
+                  setPaginaActual(1);
+                }}
+                className={`shrink-0 min-h-10 px-4 rounded-full text-sm font-bold border transition cursor-pointer ${
+                  activa
+                    ? 'bg-rose-600 border-rose-600 text-white'
+                    : 'bg-white border-slate-200 text-slate-700'
+                }`}
+              >
+                {cat.nombreCategoria}
+              </button>
+            );
+          })}
         </div>
-      )}
+      </div>
+
+      {/* Filtros en móvil: panel que sube desde abajo */}
+      <BottomSheet
+        abierto={sidebarMovilAbierta}
+        onCerrar={() => setSidebarMovilAbierta(false)}
+        titulo="Filtros del catálogo"
+        subtitulo={categoriaActivaNombre}
+        pie={
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setFiltroCategoria('TODAS');
+                setOrden('MAS_RECIENTES');
+                setPaginaActual(1);
+              }}
+              className="min-h-12 px-4 rounded-xl border border-slate-300 text-sm font-bold text-slate-700 cursor-pointer"
+            >
+              Limpiar
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarMovilAbierta(false)}
+              className="flex-1 min-h-12 rounded-xl bg-rose-600 text-white text-sm font-bold active:bg-rose-700 cursor-pointer"
+            >
+              {loading ? 'Buscando…' : `Ver ${totalItems} prendas`}
+            </button>
+          </div>
+        }
+      >
+        {renderBarraLateralFiltros(true)}
+      </BottomSheet>
 
       {/* Contenido Principal del Catálogo Público: Barra Lateral Izquierda (Escritorio) + Grilla */}
       <div className="flex-1 w-full px-4 sm:px-6 lg:pl-6 lg:pr-6 py-6 flex flex-col lg:grid lg:grid-cols-[18rem_minmax(0,1fr)_18rem] gap-6 items-start">
@@ -1076,11 +1116,11 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
 
       {/* Botón Flotante Inferior cuando hay prendas en la Bolsa de Consulta */}
       {totalUnidadesBolsa > 0 && !drawerAbierto && (
-        <div className="fixed bottom-5 right-5 z-40">
+        <div className="fixed bottom-safe-5 right-4 left-4 sm:left-auto sm:right-5 z-40">
           <button
             type="button"
             onClick={() => setDrawerAbierto(true)}
-            className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-emerald-600 text-white font-bold text-sm shadow-xl hover:bg-emerald-700 transition cursor-pointer"
+            className="w-full sm:w-auto min-h-14 flex items-center justify-center gap-3 px-5 py-3.5 rounded-2xl bg-emerald-600 text-white font-bold text-sm shadow-xl hover:bg-emerald-700 transition cursor-pointer"
           >
             <MessageCircle className="w-5 h-5" />
             <span>
@@ -1093,7 +1133,7 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
       {/* Drawer Lateral: Bolsa de Consulta por WhatsApp */}
       {drawerAbierto && (
         <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-md h-full flex flex-col justify-between shadow-2xl">
+          <div className="bg-white w-full max-w-md h-full flex flex-col justify-between shadow-2xl pt-safe pb-safe">
             {/* Cabecera del Drawer */}
             <div className="p-5 border-b border-slate-200 flex items-center justify-between">
               <div>

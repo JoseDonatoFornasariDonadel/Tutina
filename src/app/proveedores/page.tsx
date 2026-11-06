@@ -32,6 +32,8 @@ import {
   type NuevoProductoCreado,
 } from '@/components/catalogo/NuevaPrendaModal';
 import type { ColorOpcion } from '@/components/catalogo/ColorSelector';
+import { MobileDataCard } from '@/components/mobile/MobileDataCard';
+import { Stepper, PieStepper, esPantallaChica } from '@/components/mobile/Stepper';
 import { agregarCategoria } from '@/components/catalogo/CategoriaSelector';
 import { comprimirImagen } from '@/lib/comprimirImagen';
 import { mapearTextoAColorHex } from '@/lib/colores';
@@ -170,6 +172,8 @@ export default function ProveedoresFacturasPage() {
 
   // Formulario de Nueva Factura / DetalleIngreso
   const [codProveedorSel, setCodProveedorSel] = useState<number>(0);
+  // En celular la carga de factura va en 2 pasos: datos del comprobante y prendas
+  const [pasoFactura, setPasoFactura] = useState(0);
   const [nroFactura, setNroFactura] = useState('FC-A-0001-00004890');
   const [ivaFactura, setIvaFactura] = useState(21);
   const [comprobanteUrl, setComprobanteUrl] = useState<string>('');
@@ -629,8 +633,35 @@ export default function ProveedoresFacturasPage() {
     }
   };
 
+  const PASOS_FACTURA = [{ titulo: 'Comprobante' }, { titulo: 'Prendas' }];
+
+  const irAPasoFactura = (destino: number) => {
+    if (destino > pasoFactura && pasoFactura === 0) {
+      if (!codProveedorSel) {
+        alert('Elegí el proveedor que emitió la factura.');
+        return;
+      }
+      if (!nroFactura.trim()) {
+        alert('Ingresá el número de factura.');
+        return;
+      }
+    }
+    setPasoFactura(Math.max(0, Math.min(PASOS_FACTURA.length - 1, destino)));
+    document.getElementById('form-factura')?.scrollIntoView({ block: 'start' });
+  };
+
   const handleRegistrarFactura = async (e: React.FormEvent) => {
     e.preventDefault();
+    // "Ir" del teclado en el primer paso: avanza en lugar de enviar
+    if (esPantallaChica() && pasoFactura === 0) {
+      irAPasoFactura(1);
+      return;
+    }
+    if (!nroFactura.trim()) {
+      setPasoFactura(0);
+      alert('Ingresá el número de factura.');
+      return;
+    }
     if (lineasIngreso.length === 0) {
       alert('Seleccioná al menos una variante de prenda para registrar la factura.');
       return;
@@ -655,6 +686,7 @@ export default function ProveedoresFacturasPage() {
       setNroFactura(`FC-A-0001-0000${Math.floor(5000 + Math.random() * 4000)}`);
       setComprobanteUrl('');
       setNombreArchivoComprobante('');
+      setPasoFactura(0);
       await cargarDatos();
       await refreshGlobalState();
     } catch (err: unknown) {
@@ -1062,15 +1094,30 @@ export default function ProveedoresFacturasPage() {
           )}
 
           <form
+            id="form-factura"
             onSubmit={handleRegistrarFactura}
-            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5"
+            className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5 scroll-mt-20"
           >
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
-              <FileText className="w-5 h-5 text-rose-600" /> Cargar Nueva Factura de Proveedor (
-              `Factura` + `DetalleIngreso`)
+              <FileText className="w-5 h-5 text-rose-600 shrink-0" />
+              <span className="sm:hidden">Cargar factura</span>
+              <span className="hidden sm:inline">
+                Cargar Nueva Factura de Proveedor (`Factura` + `DetalleIngreso`)
+              </span>
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+            <Stepper
+              pasos={PASOS_FACTURA}
+              pasoActual={pasoFactura}
+              onIrAPaso={irAPasoFactura}
+            />
+
+            {/* Paso 1: datos del comprobante */}
+            <div
+              className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 ${
+                pasoFactura === 0 ? '' : 'max-sm:hidden'
+              }`}
+            >
               <div className="lg:col-span-4">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Proveedor Emisor
@@ -1105,6 +1152,7 @@ export default function ProveedoresFacturasPage() {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">IVA (%)</label>
                 <input
                   type="number"
+                inputMode="decimal"
                   step="0.5"
                   value={ivaFactura}
                   onChange={(e) => setIvaFactura(Number(e.target.value))}
@@ -1118,7 +1166,7 @@ export default function ProveedoresFacturasPage() {
                   Comprobante (PDF o Foto)
                 </label>
                 <div className="flex items-center gap-2">
-                  <label className="flex-1 py-2 px-3 rounded-xl border border-dashed border-rose-300 bg-rose-50/50 text-xs font-bold text-rose-700 hover:bg-rose-100/60 cursor-pointer flex items-center justify-center gap-1.5 truncate">
+                  <label className="flex-1 min-h-11 sm:min-h-0 py-2 px-3 rounded-xl border border-dashed border-rose-300 bg-rose-50/50 text-xs font-bold text-rose-700 hover:bg-rose-100/60 cursor-pointer flex items-center justify-center gap-1.5 truncate">
                     <Upload className="w-3.5 h-3.5 shrink-0" />
                     <span className="truncate">
                       {procesandoComprobante
@@ -1142,7 +1190,8 @@ export default function ProveedoresFacturasPage() {
                         setNombreArchivoComprobante('');
                       }}
                       title="Quitar comprobante adjunto"
-                      className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-600 cursor-pointer"
+                      aria-label="Quitar comprobante adjunto"
+                      className="touch-target rounded-xl border border-slate-200 text-slate-400 hover:text-rose-600 cursor-pointer"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1151,8 +1200,8 @@ export default function ProveedoresFacturasPage() {
               </div>
             </div>
 
-            {/* Líneas de DetalleIngreso con Selector Interactivo estilo Carrito en Vivo */}
-            <div className="space-y-3 pt-2">
+            {/* Paso 2: líneas de DetalleIngreso con selector interactivo estilo carrito en vivo */}
+            <div className={`space-y-3 pt-2 ${pasoFactura === 1 ? '' : 'max-sm:hidden'}`}>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
@@ -1171,7 +1220,7 @@ export default function ProveedoresFacturasPage() {
                       abrirModalSelectorProductos();
                       setModalNuevaPrendaAbierto(true);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 min-h-11 sm:min-h-0 sm:py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-sm sm:text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" /> Nueva Prenda
                   </button>
@@ -1179,10 +1228,13 @@ export default function ProveedoresFacturasPage() {
                   <button
                     type="button"
                     onClick={abrirModalSelectorProductos}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-rose-600 transition cursor-pointer shadow-xs"
+                    className="inline-flex items-center justify-center gap-2 px-4 min-h-11 sm:min-h-0 sm:py-2 rounded-xl bg-slate-900 text-white text-sm sm:text-xs font-bold hover:bg-rose-600 transition cursor-pointer shadow-xs"
                   >
-                    <PackagePlus className="w-4 h-4" /> Selección Múltiple de Indumentaria (Carrito
-                    en Vivo)
+                    <PackagePlus className="w-4 h-4" />
+                    <span className="sm:hidden">Elegir prendas</span>
+                    <span className="hidden sm:inline">
+                      Selección Múltiple de Indumentaria (Carrito en Vivo)
+                    </span>
                   </button>
                 </div>
               </div>
@@ -1272,6 +1324,7 @@ export default function ProveedoresFacturasPage() {
                           </label>
                           <input
                             type="number"
+                inputMode="numeric"
                             min={1}
                             required
                             value={linea.cantidadDI}
@@ -1290,6 +1343,7 @@ export default function ProveedoresFacturasPage() {
                           </label>
                           <input
                             type="number"
+                inputMode="decimal"
                             min={1}
                             required
                             value={linea.precioIndividual}
@@ -1309,7 +1363,8 @@ export default function ProveedoresFacturasPage() {
                             onClick={() =>
                               setLineasIngreso(lineasIngreso.filter((_, i) => i !== idx))
                             }
-                            className="p-2 text-slate-400 hover:text-rose-600 disabled:opacity-30 cursor-pointer"
+                            aria-label="Quitar línea"
+                            className="touch-target text-slate-400 hover:text-rose-600 disabled:opacity-30 cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1321,7 +1376,11 @@ export default function ProveedoresFacturasPage() {
               )}
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div
+              className={`pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                pasoFactura === 1 ? '' : 'max-sm:hidden'
+              }`}
+            >
               <div className="text-sm font-bold text-slate-800">
                 Costo Total Factura:{' '}
                 <span className="text-lg font-extrabold text-rose-600">
@@ -1331,17 +1390,34 @@ export default function ProveedoresFacturasPage() {
               <button
                 type="submit"
                 disabled={guardandoFactura || procesandoComprobante || lineasIngreso.length === 0}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition cursor-pointer disabled:opacity-50"
+                className="hidden sm:inline-flex px-5 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition cursor-pointer disabled:opacity-50"
               >
                 {guardandoFactura
                   ? 'Procesando Ingreso...'
                   : 'Registrar Factura, Sumar Stock y Actualizar Costos'}
               </button>
             </div>
+
+            <PieStepper
+              sobreBarraInferior
+              pasoActual={pasoFactura}
+              totalPasos={PASOS_FACTURA.length}
+              onAtras={() => irAPasoFactura(pasoFactura - 1)}
+              onSiguiente={() => irAPasoFactura(pasoFactura + 1)}
+              onCancelar={() => setPasoFactura(0)}
+              deshabilitado={
+                guardandoFactura || procesandoComprobante || lineasIngreso.length === 0
+              }
+              textoFinal={
+                guardandoFactura
+                  ? 'Registrando...'
+                  : `Registrar factura • $${costoTotalFactura.toLocaleString('es-AR')}`
+              }
+            />
           </form>
 
           {/* Historial de Facturas Registradas */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Truck className="w-5 h-5 text-slate-700" /> Historial de Facturas e Ingresos de
               Stock
@@ -1352,10 +1428,60 @@ export default function ProveedoresFacturasPage() {
                 const urlComp = f.tieneComprobante
                   ? `/api/proveedores/comprobante/${f.idFactura}`
                   : null;
+                const unidadesFactura = f.detallesIngreso.reduce((acc, di) => acc + di.cantidadDI, 0);
                 return (
+                  <React.Fragment key={f.idFactura}>
+                  {/* Móvil: tarjeta compacta, el detalle se abre con un toque */}
+                  <div className="sm:hidden">
+                    <MobileDataCard
+                      etiqueta={
+                        <span className="font-mono text-xs font-bold bg-slate-900 text-white px-2 py-0.5 rounded-md shrink-0">
+                          {f.nroFactura}
+                        </span>
+                      }
+                      titulo={f.proveedor.nombreProveedor}
+                      subtitulo={`${new Date(f.fechaFactura).toLocaleDateString('es-AR')} • ${unidadesFactura} u. ingresadas`}
+                      valor={`$${f.costoTotal.toLocaleString('es-AR')}`}
+                      valorDetalle={`IVA ${f.ivaFactura}%`}
+                      acciones={
+                        urlComp && (
+                          <a
+                            href={urlComp}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex min-h-11 items-center gap-2 px-4 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-sm"
+                          >
+                            <FileText className="w-4 h-4" /> Ver comprobante
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        )
+                      }
+                    >
+                      <ul className="divide-y divide-slate-100">
+                        {f.detallesIngreso.map((di) => (
+                          <li key={di.idDetalleIngreso} className="py-2 flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="font-semibold text-slate-800 truncate">
+                                {di.variante.producto.nombre}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                {di.variante.talle.nombreTalle} • {di.variante.color.nombreColor}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="font-bold text-slate-900">+{di.cantidadDI} u.</div>
+                              <div className="text-xs text-slate-500">
+                                ${di.precioIndividual.toLocaleString('es-AR')} c/u
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </MobileDataCard>
+                  </div>
+
                   <div
-                    key={f.idFactura}
-                    className="p-4 rounded-xl border border-slate-200 space-y-2 text-xs"
+                    className="hidden sm:block p-4 rounded-xl border border-slate-200 space-y-2 text-xs"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -1397,6 +1523,7 @@ export default function ProveedoresFacturasPage() {
                       ))}
                     </div>
                   </div>
+                  </React.Fragment>
                 );
               })}
             </div>
@@ -1408,16 +1535,19 @@ export default function ProveedoresFacturasPage() {
       {/* MODAL DE SELECCIÓN DE PRODUCTOS ESTILO CARRITO EN VIVO PARA FACTURAS              */}
       {/* ================================================================================= */}
       {modalProductosAbierto && (
-        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
-          <div className="bg-white rounded-2xl w-full max-w-6xl h-[90vh] flex flex-col border border-slate-200 shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-stretch sm:items-center justify-center sm:p-6">
+          <div className="bg-white sm:rounded-2xl w-full max-w-6xl h-dvh sm:h-[90vh] flex flex-col sm:border border-slate-200 shadow-2xl overflow-hidden">
             {/* Barra Superior del Modal con botón "Nueva Prenda" */}
-            <div className="px-6 py-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div className="px-4 sm:px-6 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top,0px))] sm:py-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
               <div>
                 <h2 className="text-base font-bold flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5 text-rose-400" /> Selección Múltiple de
-                  Indumentaria (Carrito en Vivo)
+                  <ShoppingCart className="w-5 h-5 text-rose-400 shrink-0" />
+                  <span className="sm:hidden">Elegir prendas</span>
+                  <span className="hidden sm:inline">
+                    Selección Múltiple de Indumentaria (Carrito en Vivo)
+                  </span>
                 </h2>
-                <p className="text-xs text-slate-400">
+                <p className="hidden sm:block text-xs text-slate-400">
                   Filtra por Categoría, Marca, Proveedor o nombre. También puedes crear una Nueva
                   Prenda sin salir de la factura.
                 </p>
@@ -1434,7 +1564,8 @@ export default function ProveedoresFacturasPage() {
                 <button
                   type="button"
                   onClick={() => setModalProductosAbierto(false)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+                  aria-label="Cerrar"
+                  className="touch-target -mr-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1445,8 +1576,8 @@ export default function ProveedoresFacturasPage() {
             <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
               {/* Panel Izquierdo: Buscador + Filtros + Grilla de Productos */}
               <div className="flex-1 flex flex-col min-h-0 border-b lg:border-b-0 lg:border-r border-slate-200">
-                <div className="p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 shrink-0">
-                  <div className="relative">
+                <div className="p-3 sm:p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-3 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-2.5 shrink-0">
+                  <div className="relative col-span-3 sm:col-span-1">
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
@@ -1460,7 +1591,7 @@ export default function ProveedoresFacturasPage() {
                   <select
                     value={filtroModalCategoria}
                     onChange={(e) => setFiltroModalCategoria(e.target.value)}
-                    className="px-3 py-2 text-xs bg-white rounded-xl border border-slate-200"
+                    className="min-w-0 px-2 sm:px-3 py-2 text-xs bg-white rounded-xl border border-slate-200"
                   >
                     <option value="TODAS">Categoría: Todas</option>
                     {categoriasCat.map((c) => (
@@ -1473,7 +1604,7 @@ export default function ProveedoresFacturasPage() {
                   <select
                     value={filtroModalMarca}
                     onChange={(e) => setFiltroModalMarca(e.target.value)}
-                    className="px-3 py-2 text-xs bg-white rounded-xl border border-slate-200"
+                    className="min-w-0 px-2 sm:px-3 py-2 text-xs bg-white rounded-xl border border-slate-200"
                   >
                     <option value="TODAS">Marca: Todas</option>
                     {marcasCat.map((m) => (
@@ -1486,7 +1617,7 @@ export default function ProveedoresFacturasPage() {
                   <select
                     value={filtroModalProveedor}
                     onChange={(e) => setFiltroModalProveedor(e.target.value)}
-                    className="px-3 py-2 text-xs bg-white rounded-xl border border-slate-200"
+                    className="min-w-0 px-2 sm:px-3 py-2 text-xs bg-white rounded-xl border border-slate-200"
                   >
                     <option value="TODOS">Proveedor: Todos</option>
                     {proveedores.map((pr) => (
@@ -1589,7 +1720,7 @@ export default function ProveedoresFacturasPage() {
                                 type="button"
                                 disabled={!varObj}
                                 onClick={() => agregarAlCarritoFacturaEnVivo(prod)}
-                                className="flex-1 py-1.5 px-3 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition cursor-pointer disabled:opacity-40"
+                                className="flex-1 min-h-11 sm:min-h-0 py-1.5 px-3 rounded-lg bg-rose-600 text-white text-sm sm:text-xs font-bold hover:bg-rose-700 transition cursor-pointer disabled:opacity-40"
                               >
                                 + Sumar a Factura
                               </button>
@@ -1603,7 +1734,7 @@ export default function ProveedoresFacturasPage() {
               </div>
 
               {/* Panel Lateral Derecho: Carrito en Vivo dentro del mismo Modal */}
-              <div className="w-full lg:w-96 bg-slate-50 flex flex-col shrink-0 h-72 lg:h-auto">
+              <div className="w-full lg:w-96 bg-slate-50 flex flex-col shrink-0 sm:h-72 lg:h-auto">
                 <div className="p-4 bg-white border-b border-slate-200 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Filter className="w-4 h-4 text-rose-600" />
@@ -1623,7 +1754,7 @@ export default function ProveedoresFacturasPage() {
                 </div>
 
                 {/* Lista de ítems en el Carrito Lateral */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+                <div className="flex-1 overflow-y-auto scroll-touch p-4 space-y-2.5 max-sm:hidden">
                   {carritoModalEnVivo.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-center p-4 text-slate-400">
                       <ShoppingCart className="w-8 h-8 mb-2 stroke-1" />
@@ -1689,6 +1820,7 @@ export default function ProveedoresFacturasPage() {
                             <span className="text-[10px] text-slate-400 font-semibold">Costo:</span>
                             <input
                               type="number"
+                inputMode="decimal"
                               min={1}
                               value={item.precioIndividual}
                               onChange={(e) =>
@@ -1707,7 +1839,7 @@ export default function ProveedoresFacturasPage() {
                 </div>
 
                 {/* Pie del Panel Lateral con Subtotal en Vivo y Botón Confirmar Selección */}
-                <div className="p-4 bg-white border-t border-slate-200 space-y-3">
+                <div className="p-4 pb-safe-4 sm:pb-4 bg-white border-t border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-600">
                       Costo Total Seleccionado:

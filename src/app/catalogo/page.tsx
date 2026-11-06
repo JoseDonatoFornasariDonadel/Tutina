@@ -1189,6 +1189,7 @@ export default function CatalogoPage() {
                     </label>
                     <input
                       type="number"
+                inputMode="decimal"
                       min={0}
                       step="50"
                       value={productoEditando.precioCosto}
@@ -1206,6 +1207,7 @@ export default function CatalogoPage() {
                     </label>
                     <input
                       type="number"
+                inputMode="decimal"
                       step="0.5"
                       value={productoEditando.porcentajeMarkup}
                       onChange={(e) => handleCambioMarkupEdicion(Number(e.target.value))}
@@ -1220,6 +1222,7 @@ export default function CatalogoPage() {
                     </label>
                     <input
                       type="number"
+                inputMode="decimal"
                       step="0.05"
                       min={1}
                       value={calcularCoeficienteReventa(productoEditando.porcentajeMarkup)}
@@ -1237,6 +1240,7 @@ export default function CatalogoPage() {
                     </label>
                     <input
                       type="number"
+                inputMode="decimal"
                       min={0}
                       step="100"
                       value={productoEditando.precio}
@@ -1312,6 +1316,7 @@ export default function CatalogoPage() {
                       </label>
                       <input
                         type="number"
+                inputMode="decimal"
                         min={1}
                         max={90}
                         value={nuevoDescRapido.porcentajeDesc}
@@ -1663,6 +1668,7 @@ export default function CatalogoPage() {
                         </label>
                         <input
                           type="number"
+                inputMode="numeric"
                           min={0}
                           value={v.stock}
                           onChange={(e) => {
