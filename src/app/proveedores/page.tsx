@@ -1535,16 +1535,19 @@ export default function ProveedoresFacturasPage() {
       {/* MODAL DE SELECCIÓN DE PRODUCTOS ESTILO CARRITO EN VIVO PARA FACTURAS              */}
       {/* ================================================================================= */}
       {modalProductosAbierto && (
-        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
-          <div className="bg-white rounded-2xl w-full max-w-6xl h-[90vh] flex flex-col border border-slate-200 shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-stretch sm:items-center justify-center sm:p-6">
+          <div className="bg-white sm:rounded-2xl w-full max-w-6xl h-dvh sm:h-[90vh] flex flex-col sm:border border-slate-200 shadow-2xl overflow-hidden">
             {/* Barra Superior del Modal con botón "Nueva Prenda" */}
-            <div className="px-6 py-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div className="px-4 sm:px-6 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top,0px))] sm:py-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
               <div>
                 <h2 className="text-base font-bold flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5 text-rose-400" /> Selección Múltiple de
-                  Indumentaria (Carrito en Vivo)
+                  <ShoppingCart className="w-5 h-5 text-rose-400 shrink-0" />
+                  <span className="sm:hidden">Elegir prendas</span>
+                  <span className="hidden sm:inline">
+                    Selección Múltiple de Indumentaria (Carrito en Vivo)
+                  </span>
                 </h2>
-                <p className="text-xs text-slate-400">
+                <p className="hidden sm:block text-xs text-slate-400">
                   Filtra por Categoría, Marca, Proveedor o nombre. También puedes crear una Nueva
                   Prenda sin salir de la factura.
                 </p>
@@ -1561,7 +1564,8 @@ export default function ProveedoresFacturasPage() {
                 <button
                   type="button"
                   onClick={() => setModalProductosAbierto(false)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+                  aria-label="Cerrar"
+                  className="touch-target -mr-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1572,8 +1576,8 @@ export default function ProveedoresFacturasPage() {
             <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
               {/* Panel Izquierdo: Buscador + Filtros + Grilla de Productos */}
               <div className="flex-1 flex flex-col min-h-0 border-b lg:border-b-0 lg:border-r border-slate-200">
-                <div className="p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 shrink-0">
-                  <div className="relative">
+                <div className="p-3 sm:p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-3 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-2.5 shrink-0">
+                  <div className="relative col-span-3 sm:col-span-1">
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
@@ -1587,7 +1591,7 @@ export default function ProveedoresFacturasPage() {
                   <select
                     value={filtroModalCategoria}
                     onChange={(e) => setFiltroModalCategoria(e.target.value)}
-                    className="px-3 py-2 text-xs bg-white rounded-xl border border-slate-200"
+                    className="min-w-0 px-2 sm:px-3 py-2 text-xs bg-white rounded-xl border border-slate-200"
                   >
                     <option value="TODAS">Categoría: Todas</option>
                     {categoriasCat.map((c) => (
@@ -1600,7 +1604,7 @@ export default function ProveedoresFacturasPage() {
                   <select
                     value={filtroModalMarca}
                     onChange={(e) => setFiltroModalMarca(e.target.value)}
-                    className="px-3 py-2 text-xs bg-white rounded-xl border border-slate-200"
+                    className="min-w-0 px-2 sm:px-3 py-2 text-xs bg-white rounded-xl border border-slate-200"
                   >
                     <option value="TODAS">Marca: Todas</option>
                     {marcasCat.map((m) => (
@@ -1613,7 +1617,7 @@ export default function ProveedoresFacturasPage() {
                   <select
                     value={filtroModalProveedor}
                     onChange={(e) => setFiltroModalProveedor(e.target.value)}
-                    className="px-3 py-2 text-xs bg-white rounded-xl border border-slate-200"
+                    className="min-w-0 px-2 sm:px-3 py-2 text-xs bg-white rounded-xl border border-slate-200"
                   >
                     <option value="TODOS">Proveedor: Todos</option>
                     {proveedores.map((pr) => (
@@ -1716,7 +1720,7 @@ export default function ProveedoresFacturasPage() {
                                 type="button"
                                 disabled={!varObj}
                                 onClick={() => agregarAlCarritoFacturaEnVivo(prod)}
-                                className="flex-1 py-1.5 px-3 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition cursor-pointer disabled:opacity-40"
+                                className="flex-1 min-h-11 sm:min-h-0 py-1.5 px-3 rounded-lg bg-rose-600 text-white text-sm sm:text-xs font-bold hover:bg-rose-700 transition cursor-pointer disabled:opacity-40"
                               >
                                 + Sumar a Factura
                               </button>
@@ -1730,7 +1734,7 @@ export default function ProveedoresFacturasPage() {
               </div>
 
               {/* Panel Lateral Derecho: Carrito en Vivo dentro del mismo Modal */}
-              <div className="w-full lg:w-96 bg-slate-50 flex flex-col shrink-0 h-72 lg:h-auto">
+              <div className="w-full lg:w-96 bg-slate-50 flex flex-col shrink-0 sm:h-72 lg:h-auto">
                 <div className="p-4 bg-white border-b border-slate-200 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Filter className="w-4 h-4 text-rose-600" />
@@ -1750,7 +1754,7 @@ export default function ProveedoresFacturasPage() {
                 </div>
 
                 {/* Lista de ítems en el Carrito Lateral */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+                <div className="flex-1 overflow-y-auto scroll-touch p-4 space-y-2.5 max-sm:hidden">
                   {carritoModalEnVivo.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-center p-4 text-slate-400">
                       <ShoppingCart className="w-8 h-8 mb-2 stroke-1" />
@@ -1835,7 +1839,7 @@ export default function ProveedoresFacturasPage() {
                 </div>
 
                 {/* Pie del Panel Lateral con Subtotal en Vivo y Botón Confirmar Selección */}
-                <div className="p-4 bg-white border-t border-slate-200 space-y-3">
+                <div className="p-4 pb-safe-4 sm:pb-4 bg-white border-t border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-600">
                       Costo Total Seleccionado:

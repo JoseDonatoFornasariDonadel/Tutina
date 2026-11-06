@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { MobileDataCard } from '@/components/mobile/MobileDataCard';
 import {
   TrendingUp,
   DollarSign,
@@ -535,11 +536,56 @@ export default function ReportesFinancierosPage() {
           </div>
 
           {/* Tabla Histórica Mensual de Todo el Negocio */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
             <h3 className="text-base font-bold text-slate-900">
               Desglose Mensual General del Negocio
             </h3>
-            <div className="overflow-x-auto">
+
+            {/* Móvil: una tarjeta por mes; el detalle de costos se abre con un toque */}
+            <div className="sm:hidden space-y-2.5">
+              {serieMensualGlobal.map((m) => (
+                <MobileDataCard
+                  key={m.periodo}
+                  titulo={m.label}
+                  subtitulo={`${m.unidades} prendas vendidas`}
+                  valor={
+                    <span className="text-emerald-700">${m.utilidadNeta.toLocaleString('es-AR')}</span>
+                  }
+                  valorDetalle="Utilidad neta"
+                  tono={m.utilidadNeta < 0 ? 'peligro' : 'normal'}
+                  datos={[
+                    { label: 'Facturación', valor: `$${m.facturacionNeta.toLocaleString('es-AR')}` },
+                    {
+                      label: 'Margen contrib.',
+                      valor: (
+                        <span className="text-indigo-700">
+                          ${m.margenContribucion.toLocaleString('es-AR')}
+                        </span>
+                      ),
+                    },
+                  ]}
+                >
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-500">CMV histórico</span>
+                      <span className="font-semibold">-${m.cmv.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-500">Comisiones</span>
+                      <span className="font-semibold">-${m.comisiones.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-500">Gastos operativos</span>
+                      <span className="font-semibold text-rose-600">
+                        -${m.gastosOperativos.toLocaleString('es-AR')}
+                      </span>
+                    </div>
+                  </div>
+                </MobileDataCard>
+              ))}
+            </div>
+
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-500 uppercase border-b border-slate-200">
                   <tr>
@@ -616,7 +662,10 @@ export default function ReportesFinancierosPage() {
       {/* =========================================================================== */}
       {(modoReporte === 'POR_PRENDA' || modoReporte === 'AMBOS') && (
         <div className="space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+          <div
+            id="grafico-prenda"
+            className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5 scroll-mt-20"
+          >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -725,18 +774,84 @@ export default function ReportesFinancierosPage() {
           </div>
 
           {/* Matriz Completa de Rendimiento por Prenda */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
             <div>
               <h2 className="text-base font-bold text-slate-900">
-                Matriz Comparativa de Rentabilidad y Coeficiente de Reventa por Indumentaria
+                <span className="sm:hidden">Rentabilidad por prenda</span>
+                <span className="hidden sm:inline">
+                  Matriz Comparativa de Rentabilidad y Coeficiente de Reventa por Indumentaria
+                </span>
               </h2>
               <p className="text-xs text-slate-500">
-                Haz clic en cualquier fila para ver el gráfico de evolución histórica de esa
-                prenda.
+                <span className="sm:hidden">
+                  Tocá una prenda para ver el detalle y su gráfico de evolución.
+                </span>
+                <span className="hidden sm:inline">
+                  Haz clic en cualquier fila para ver el gráfico de evolución histórica de esa
+                  prenda.
+                </span>
               </p>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Móvil: tarjetas con lo esencial (margen y unidades) */}
+            <div className="sm:hidden space-y-2.5">
+              {rankingProductos.map((p) => (
+                <MobileDataCard
+                  key={p.codProducto}
+                  titulo={p.nombre}
+                  subtitulo={`${p.categoria} • ${p.unidadesVendidas} u. vendidas`}
+                  valor={
+                    <span className="text-emerald-700">
+                      +${p.margenContribucion.toLocaleString('es-AR')}
+                    </span>
+                  }
+                  valorDetalle={`${p.margenPorcentajeSobreVenta}% s/ venta`}
+                  acciones={
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCodProdSeleccionado(p.codProducto);
+                        document
+                          .getElementById('grafico-prenda')
+                          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                      className="inline-flex min-h-11 items-center gap-2 px-4 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-sm cursor-pointer"
+                    >
+                      <LineChartIcon className="w-4 h-4" /> Ver gráfico de evolución
+                    </button>
+                  }
+                >
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-500">Costo vigente</span>
+                      <span className="font-semibold">
+                        ${p.precioCostoActual.toLocaleString('es-AR')}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-500">Markup / coeficiente</span>
+                      <span className="font-semibold text-indigo-700">
+                        +{p.porcentajeMarkupActual}% ({p.coeficienteReventaActual}x)
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-500">Facturación neta</span>
+                      <span className="font-semibold">
+                        ${p.facturacionNeta.toLocaleString('es-AR')}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-500">CMV histórico</span>
+                      <span className="font-semibold">
+                        -${p.cmvHistorico.toLocaleString('es-AR')}
+                      </span>
+                    </div>
+                  </div>
+                </MobileDataCard>
+              ))}
+            </div>
+
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-500 uppercase border-b border-slate-200">
                   <tr>
