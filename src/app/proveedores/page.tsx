@@ -850,7 +850,7 @@ export default function ProveedoresFacturasPage() {
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                   Nombre / Razón Social *
                 </label>
-                <input
+                <input aria-label="Nombre / Razón Social"
                   type="text"
                   required
                   placeholder="Ej: Textil Deportiva Norte S.A."
@@ -866,7 +866,7 @@ export default function ProveedoresFacturasPage() {
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                   Teléfono / WhatsApp (`numeroProveedor`) *
                 </label>
-                <input
+                <input aria-label="Teléfono / WhatsApp"
                   type="text"
                   required
                   placeholder="+54911..."
@@ -883,7 +883,7 @@ export default function ProveedoresFacturasPage() {
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                   Correo Electrónico (`correoProveedor`)
                 </label>
-                <input
+                <input aria-label="Correo Electrónico"
                   type="email"
                   placeholder="ventas@proveedor.com.ar"
                   value={nuevoProvForm.correoProveedor}
@@ -898,7 +898,7 @@ export default function ProveedoresFacturasPage() {
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                   Sitio Web / Catálogo (`webProveedor`)
                 </label>
-                <input
+                <input aria-label="Sitio Web / Catálogo"
                   type="text"
                   placeholder="https://..."
                   inputMode="url"
@@ -1022,7 +1022,7 @@ export default function ProveedoresFacturasPage() {
                         <div className="font-bold text-slate-900 text-sm">
                           {pr.nombreProveedor}
                         </div>
-                        <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-slate-200/70 text-slate-600">
+                        <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                           ID #{pr.codProveedor}
                         </span>
                       </div>
@@ -1158,7 +1158,7 @@ export default function ProveedoresFacturasPage() {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Proveedor Emisor
                 </label>
-                <select
+                <select aria-label="Proveedor Emisor"
                   value={codProveedorSel}
                   onChange={(e) => setCodProveedorSel(Number(e.target.value))}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium"
@@ -1175,7 +1175,7 @@ export default function ProveedoresFacturasPage() {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Nro. Factura
                 </label>
-                <input
+                <input aria-label="Nro. Factura"
                   type="text"
                   required
                   value={nroFactura}
@@ -1186,7 +1186,7 @@ export default function ProveedoresFacturasPage() {
 
               <div className="lg:col-span-2">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">IVA (%)</label>
-                <input
+                <input aria-label="IVA (%)"
                   type="number"
                 inputMode="decimal"
                   step="0.5"
@@ -1358,7 +1358,7 @@ export default function ProveedoresFacturasPage() {
                           <label className="block text-[11px] font-semibold text-slate-500 mb-1">
                             Cantidad (`cantidadDI`)
                           </label>
-                          <input
+                          <input aria-label="Cantidad"
                             type="number"
                 inputMode="numeric"
                             min={1}
@@ -1377,7 +1377,7 @@ export default function ProveedoresFacturasPage() {
                           <label className="block text-[11px] font-semibold text-slate-500 mb-1">
                             Costo Unit. (`precioIndividual`)
                           </label>
-                          <input
+                          <input aria-label="Costo Unit."
                             type="number"
                 inputMode="decimal"
                             min={1}
@@ -1572,7 +1572,7 @@ export default function ProveedoresFacturasPage() {
       {/* ================================================================================= */}
       {modalProductosAbierto && (
         <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-stretch sm:items-center justify-center sm:p-6">
-          <div className="bg-white sm:rounded-2xl w-full max-w-6xl h-dvh sm:h-[90vh] flex flex-col sm:border border-slate-200 shadow-2xl overflow-hidden">
+          <div role="dialog" aria-modal="true" aria-label="Elegir prendas" className="bg-white sm:rounded-2xl w-full max-w-6xl h-dvh sm:h-[90vh] flex flex-col sm:border border-slate-200 shadow-2xl overflow-hidden">
             {/* Barra Superior del Modal con botón "Nueva Prenda" */}
             <div className="px-4 sm:px-6 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top,0px))] sm:py-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-2 sm:gap-3 shrink-0">
               <div>

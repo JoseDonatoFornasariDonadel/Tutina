@@ -257,12 +257,28 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
   // Modal de vista ampliada de prenda
   const [productoDetalleModal, setProductoDetalleModal] = useState<ProductoPublico | null>(null);
 
+  // Al abrir la bolsa o el detalle, el foco entra en la ventana (teclado y lector de pantalla)
+  const refBolsa = useRef<HTMLDivElement>(null);
+  const refDetalle = useRef<HTMLDivElement>(null);
+
+  // Escape cierra la bolsa de consulta
+  useEffect(() => {
+    if (!drawerAbierto) return;
+    refBolsa.current?.focus({ preventScroll: true });
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDrawerAbierto(false);
+    };
+    window.addEventListener('keydown', alTeclear);
+    return () => window.removeEventListener('keydown', alTeclear);
+  }, [drawerAbierto]);
+
   // Con el detalle abierto: la página de fondo no se desplaza y Escape lo cierra
   const detalleAbierto = productoDetalleModal !== null;
   useEffect(() => {
     if (!detalleAbierto) return;
     const overflowPrevio = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    refDetalle.current?.focus({ preventScroll: true });
     const alTeclear = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setProductoDetalleModal(null);
     };
@@ -599,7 +615,7 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
         <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700">
           Ordenar Prendas
         </label>
-        <select
+        <select aria-label="Ordenar Prendas"
           value={orden}
           onChange={(e) => {
             setOrden(e.target.value);
@@ -631,13 +647,13 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       {/* Barra Superior Promocional */}
-      <div className="bg-rose-600 text-white text-xs py-2 px-4 text-center font-medium">
+      <aside aria-label="Aviso" className="bg-rose-600 text-white text-xs py-2 px-4 text-center font-medium">
         <span className="sm:hidden">✨ Consultanos por WhatsApp, sin registrarte</span>
         <span className="hidden sm:inline">
           ✨ Catálogo Online Oficial de <strong>{tienda.nombreComercial}</strong> • Elegí tu
           prenda, talle y color y consultanos directo por WhatsApp sin registrarte ✨
         </span>
-      </div>
+      </aside>
 
       {/* Header Público de la Tienda */}
       <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-xs transition-colors duration-200 pt-safe">
@@ -662,6 +678,7 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                 className="h-6 sm:h-9 max-h-9 w-auto object-contain"
               />
             </div>
+            <h1 className="sr-only lg:hidden">{tienda.nombreComercial} — Catálogo</h1>
             <div className="hidden lg:block truncate">
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-extrabold text-slate-900 tracking-tight">
@@ -1181,22 +1198,34 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
 
       {/* Drawer Lateral: Bolsa de Consulta por WhatsApp */}
       {drawerAbierto && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-md h-full flex flex-col justify-between shadow-2xl pt-safe pb-safe">
+        <div
+          onClick={() => setDrawerAbierto(false)}
+          className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-xs"
+        >
+          <div
+            ref={refBolsa}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-bolsa-consulta"
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white w-full max-w-md h-full flex flex-col justify-between shadow-2xl pt-safe pb-safe outline-none"
+          >
             {/* Cabecera del Drawer */}
             <div className="p-5 border-b border-slate-200 flex items-center justify-between">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
                   Sin registro • Directo al WhatsApp de {tienda.nombreComercial}
                 </span>
-                <h2 className="text-lg font-extrabold text-slate-900">
+                <h2 id="titulo-bolsa-consulta" className="text-lg font-extrabold text-slate-900">
                   Tu Selección para Consultar
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setDrawerAbierto(false)}
-                className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 cursor-pointer"
+                aria-label="Cerrar mi consulta"
+                className="touch-target rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1230,12 +1259,12 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                             width={56}
                             height={56}
                             sizes="56px"
-                            className="w-14 h-14 rounded-lg object-cover border border-slate-200 shrink-0"
+                            className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover border border-slate-200 shrink-0"
                           />
                           <div className="min-w-0">
-                            <h4 className="text-xs font-bold text-slate-900 truncate">
+                            <h3 className="text-xs font-bold text-slate-900 truncate">
                               {item.nombreProducto}
-                            </h4>
+                            </h3>
                             <p className="text-[11px] text-slate-600 mt-0.5">
                               Talle: <strong>{item.nombreTalle}</strong> • Color:{' '}
                               <strong>{item.nombreColor}</strong>
@@ -1250,22 +1279,28 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                           <button
                             type="button"
                             onClick={() => cambiarCantidadBolsa(item.codVariante, -1)}
-                            className="w-7 h-7 rounded-lg border border-slate-300 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-100 cursor-pointer"
+                            aria-label={`Quitar una unidad de ${item.nombreProducto}`}
+                            className="w-10 h-10 sm:w-7 sm:h-7 rounded-lg border border-slate-300 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-100 cursor-pointer"
                           >
                             <Minus className="w-3 h-3" />
                           </button>
-                          <span className="w-6 text-center text-xs font-bold">{item.cantidad}</span>
+                          <span className="w-6 text-center text-xs font-bold" aria-live="polite">
+                            <span className="sr-only">Cantidad: </span>
+                            {item.cantidad}
+                          </span>
                           <button
                             type="button"
                             onClick={() => cambiarCantidadBolsa(item.codVariante, 1)}
-                            className="w-7 h-7 rounded-lg border border-slate-300 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-100 cursor-pointer"
+                            aria-label={`Sumar una unidad de ${item.nombreProducto}`}
+                            className="w-10 h-10 sm:w-7 sm:h-7 rounded-lg border border-slate-300 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-100 cursor-pointer"
                           >
                             <Plus className="w-3 h-3" />
                           </button>
                           <button
                             type="button"
                             onClick={() => quitarDeBolsa(item.codVariante)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 cursor-pointer"
+                            aria-label={`Quitar ${item.nombreProducto} de la consulta`}
+                            className="w-10 h-10 sm:w-auto sm:h-auto sm:p-1.5 inline-flex items-center justify-center text-slate-400 hover:text-rose-600 cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1280,7 +1315,7 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                       <label className="block text-xs font-bold text-slate-700 mb-1">
                         Tu Nombre (Opcional, para el saludo de WhatsApp)
                       </label>
-                      <input
+                      <input aria-label="Tu Nombre (Opcional, para el saludo de WhatsApp)"
                         type="text"
                         value={nombreClienteOpcional}
                         onChange={(e) => setNombreClienteOpcional(e.target.value)}
@@ -1292,7 +1327,7 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                       <label className="block text-xs font-bold text-slate-700 mb-1">
                         Comentario o duda adicional (Opcional)
                       </label>
-                      <input
+                      <input aria-label="Comentario o duda adicional (Opcional)"
                         type="text"
                         value={comentarioOpcional}
                         onChange={(e) => setComentarioOpcional(e.target.value)}
@@ -1341,11 +1376,13 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-xs sm:p-4"
         >
           <div
+            ref={refDetalle}
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-label={productoDetalleModal.nombre}
             onClick={(e) => e.stopPropagation()}
-            className="animate-sheet-entrada bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 max-w-2xl w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto scroll-touch md:overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2"
+            className="animate-sheet-entrada outline-none bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 max-w-2xl w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto scroll-touch md:overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2"
           >
             {(() => {
               const {

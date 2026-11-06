@@ -333,9 +333,9 @@ export default function ClientesPage() {
 
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-bold text-slate-900 group-hover:text-rose-600 transition">
+                      <h2 className="text-base font-bold text-slate-900 group-hover:text-rose-600 transition">
                         {cli.apellidoCliente}, {cli.nombreCliente}
-                      </h3>
+                      </h2>
                       {cli.dniCuit && (
                         <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-mono text-[11px]">
                           DNI: {cli.dniCuit}
@@ -406,7 +406,7 @@ export default function ClientesPage() {
       {/* ================================================================================= */}
       {clienteSeleccionado && (
         <div className="fixed inset-0 z-50 bg-slate-900/65 backdrop-blur-xs flex items-stretch sm:items-center justify-center sm:p-4 overflow-y-auto">
-          <div className="bg-white sm:rounded-2xl max-w-4xl w-full sm:border border-slate-200 shadow-2xl overflow-hidden sm:my-8 flex flex-col h-dvh sm:h-auto sm:max-h-[88vh]">
+          <div role="dialog" aria-modal="true" aria-label={`Historial de compras de ${clienteSeleccionado.nombreCliente} ${clienteSeleccionado.apellidoCliente}`} className="bg-white sm:rounded-2xl max-w-4xl w-full sm:border border-slate-200 shadow-2xl overflow-hidden sm:my-8 flex flex-col h-dvh sm:h-auto sm:max-h-[88vh]">
             {/* Cabecera de la Ventana del Cliente */}
             <div className="px-4 sm:px-6 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] sm:py-4 bg-slate-900 text-white flex items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
@@ -593,7 +593,7 @@ export default function ClientesPage() {
                           <span
                             className={`font-extrabold ${
                               (pedido.totalAPagar ?? 0) > 0 && !pedido.estadoActual.liberaStock
-                                ? 'text-rose-600'
+                                ? 'text-rose-700'
                                 : 'text-slate-600'
                             }`}
                           >

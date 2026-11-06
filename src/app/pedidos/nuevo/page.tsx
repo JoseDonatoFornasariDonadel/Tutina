@@ -509,7 +509,7 @@ export default function NuevoPedidoPage() {
                 <label className="block text-xs font-semibold text-slate-600 mb-1 flex items-center gap-1.5">
                   <Hash className="w-3.5 h-3.5 text-rose-500" /> Nro. de Pedido (Autogenerado)
                 </label>
-                <input
+                <input aria-label="Nro. de Pedido (Autogenerado)"
                   type="text"
                   readOnly
                   value={`#${String(proximoNroPedido).padStart(4, '0')}`}
@@ -522,7 +522,7 @@ export default function NuevoPedidoPage() {
                 <label className="block text-xs font-semibold text-slate-600 mb-1 flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-rose-500" /> Fecha del Pedido
                 </label>
-                <input
+                <input aria-label="Fecha del Pedido"
                   type="date"
                   required
                   value={fechaPedido}
@@ -848,7 +848,7 @@ export default function NuevoPedidoPage() {
               <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
                 <CreditCard className="w-3.5 h-3.5 text-rose-500" /> Forma de Pago
               </label>
-              <select
+              <select aria-label="Forma de Pago"
                 value={codFPSeleccionado}
                 onChange={(e) => setCodFPSeleccionado(Number(e.target.value))}
                 className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 bg-white"
@@ -868,7 +868,7 @@ export default function NuevoPedidoPage() {
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Estado Inicial del Pedido
               </label>
-              <select
+              <select aria-label="Estado Inicial del Pedido"
                 value={codEstadoSeleccionado}
                 onChange={(e) => setCodEstadoSeleccionado(Number(e.target.value))}
                 className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 bg-white"
@@ -885,7 +885,7 @@ export default function NuevoPedidoPage() {
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Observaciones / Notas de Entrega
               </label>
-              <textarea
+              <textarea aria-label="Observaciones / Notas de Entrega"
                 rows={2}
                 value={observaciones}
                 onChange={(e) => setObservaciones(e.target.value)}
@@ -939,7 +939,7 @@ export default function NuevoPedidoPage() {
       {/* ================================================================================= */}
       {modalProductosAbierto && (
         <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-stretch sm:items-center justify-center sm:p-6">
-          <div className="bg-white sm:rounded-2xl w-full max-w-6xl h-dvh sm:h-[90vh] flex flex-col sm:border border-slate-200 shadow-2xl overflow-hidden">
+          <div role="dialog" aria-modal="true" aria-label="Elegir prendas" className="bg-white sm:rounded-2xl w-full max-w-6xl h-dvh sm:h-[90vh] flex flex-col sm:border border-slate-200 shadow-2xl overflow-hidden">
             {/* Barra Superior del Modal */}
             <div className="px-4 sm:px-6 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top,0px))] sm:py-4 bg-slate-900 text-white flex items-center justify-between gap-3 shrink-0">
               <div>

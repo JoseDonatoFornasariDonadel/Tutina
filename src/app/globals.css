@@ -32,7 +32,7 @@ html.dark {
   --dk-texto-2: #e4e4e7;
   --dk-texto-3: #d4d4d8;
   --dk-texto-sec: #a1a1aa;    /* texto secundario */
-  --dk-texto-ter: #8b8b94;    /* etiquetas chicas */
+  --dk-texto-ter: #9a9aa3;    /* etiquetas chicas (4,5:1 sobre zinc-800) */
   --dk-hover: rgba(255, 255, 255, 0.05);
   --dk-hover-2: rgba(255, 255, 255, 0.08);
 }
@@ -579,4 +579,32 @@ html.dark .bg-slate-50\/95 {
   html.dark .max-sm\:text-white {
     color: #ffffff !important;
   }
+}
+
+/* ---------- Contraste mínimo WCAG AA (4,5:1) en modo claro ---------- */
+/* text-slate-400 sobre blanco da 2,6:1: se oscurece a slate-500 (4,8:1). */
+html:not(.dark) .text-slate-400 {
+  color: var(--color-slate-500);
+}
+/* Botones verdes con texto blanco: emerald-600 da 3,6:1; emerald-700 da 5,5:1 (en ambos modos). */
+html .bg-emerald-600 {
+  background-color: var(--color-emerald-700);
+}
+@media (max-width: 639px) {
+  html .max-sm\:bg-emerald-600 {
+    background-color: var(--color-emerald-700);
+  }
+}
+/* Sobre paneles oscuros (bg-slate-800/900/950) el gris original ya tiene buen contraste. */
+html:not(.dark) :is(.bg-slate-800, .bg-slate-900, .bg-slate-950) .text-slate-400 {
+  color: var(--color-slate-400);
+}
+/* Descripción de opciones del menú lateral sobre el fondo rosado de la opción destacada. */
+html:not(.dark) .bg-rose-50\/80 .text-slate-400 {
+  color: var(--color-slate-600);
+}
+/* Como el verde base ahora es emerald-700, el estado hover/presionado pasa a emerald-800. */
+html .hover\:bg-emerald-700:hover,
+html .active\:bg-emerald-700:active {
+  background-color: var(--color-emerald-800);
 }
