@@ -1,0 +1,211 @@
+# Respaldo automático de la base de Tutina (Supabase), todas las noches.
+#
+# 1. Descarga las tablas de la app (esquema public, incluidas las fotos).
+# 2. Prueba restaurar el respaldo en una base temporal: si no se puede restaurar, falla.
+# 3. Lo cifra con AES-256 usando la contraseña RESPALDO_CLAVE.
+# 4. Lo guarda 30 días en la pestaña Actions (artefacto «respaldo-...»).
+#
+# Este repositorio es público: cualquier usuario de GitHub puede descargar los artefactos,
+# por eso el respaldo SIEMPRE va cifrado. Sin la contraseña el archivo no sirve.
+#
+# Secretos necesarios (Settings › Secrets and variables › Actions):
+#   SUPABASE_DB_URL  Conexión «Session pooler» de Supabase (puerto 5432).
+#   RESPALDO_CLAVE   Contraseña larga para cifrar (guardala también en un lugar seguro).
+#
+# Cómo restaurar: docs/respaldos.md
+name: Respaldo de la base
+
+on:
+  schedule:
+    # Todos los días a las 06:17 UTC = 03:17 en Argentina
+    - cron: '17 6 * * *'
+  # Botón «Run workflow» para hacer un respaldo en el momento
+  workflow_dispatch:
+  # Autoprueba: si un PR cambia el respaldo, se prueba todo con una base de ejemplo
+  pull_request:
+    paths:
+      - '.github/workflows/respaldo-db.yml'
+      - 'scripts/respaldo-db.sh'
+      - 'scripts/restaurar-db.sh'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: respaldo-db
+  cancel-in-progress: false
+
+jobs:
+  respaldo:
+    # El respaldo real no corre en los PR (ahí corre la autoprueba)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      # Base temporal y vacía donde se prueba restaurar el respaldo
+      verificacion:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: verificacion
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Revisar que estén los secretos
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          RESPALDO_CLAVE: ${{ secrets.RESPALDO_CLAVE }}
+        run: |
+          faltan=""
+          [ -z "$SUPABASE_DB_URL" ] && faltan="$faltan SUPABASE_DB_URL"
+          [ -z "$RESPALDO_CLAVE" ] && faltan="$faltan RESPALDO_CLAVE"
+          if [ -n "$faltan" ]; then
+            echo "::error::Faltan los secretos:$faltan. Cargalos en Settings › Secrets and variables › Actions (ver docs/respaldos.md)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Instalar las herramientas de PostgreSQL 17
+        # pg_dump tiene que ser de la misma versión que la base o más nueva
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Hacer, probar y cifrar el respaldo
+        id: respaldo
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          CLAVE_RESPALDO: ${{ secrets.RESPALDO_CLAVE }}
+          VERIFICAR_URL: postgresql://postgres:postgres@localhost:5432/verificacion
+          SALIDA_DIR: respaldos
+        run: bash scripts/respaldo-db.sh
+
+      - name: Guardar el respaldo cifrado (30 días)
+        uses: actions/upload-artifact@v4
+        with:
+          name: respaldo-${{ steps.respaldo.outputs.nombre }}
+          path: ${{ steps.respaldo.outputs.archivo }}
+          retention-days: 30
+          if-no-files-found: error
+          # Ya viene comprimido y cifrado
+          compression-level: 0
+
+      - name: Resumen
+        run: |
+          {
+            echo "### Respaldo de la base"
+            echo ""
+            echo "- Archivo: \`${{ steps.respaldo.outputs.nombre }}\` (${{ steps.respaldo.outputs.tamano }}, cifrado)"
+            echo "- Tablas: ${{ steps.respaldo.outputs.tablas }}"
+            echo "- Restauración de prueba en una base temporal: OK"
+            echo ""
+            echo "Se guarda 30 días en «Artifacts», más abajo en esta página. Para restaurarlo: docs/respaldos.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Prueba todo el proceso sin tocar Supabase ni usar secretos: crea una base de ejemplo,
+  # la respalda, la cifra, la descifra y la restaura en otra base, y compara los datos.
+  autoprueba:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: origen
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      ORIGEN: postgresql://postgres:postgres@localhost:5432/origen
+      PGPASSWORD: postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar las herramientas de PostgreSQL 17
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Crear una base de ejemplo
+        env:
+          DATABASE_URL: ${{ env.ORIGEN }}
+          DIRECT_URL: ${{ env.ORIGEN }}
+        run: |
+          npm ci
+          npx prisma db push --skip-generate
+          npm run db:seed
+          createdb -h localhost -U postgres verificacion
+          createdb -h localhost -U postgres restaurada
+
+      - name: Respaldar (con restauración de prueba) y cifrar
+        id: respaldo
+        env:
+          DB_URL: ${{ env.ORIGEN }}
+          CLAVE_RESPALDO: clave-solo-para-la-autoprueba
+          VERIFICAR_URL: postgresql://postgres:postgres@localhost:5432/verificacion
+          SALIDA_DIR: respaldos
+        run: bash scripts/respaldo-db.sh
+
+      - name: La contraseña equivocada no abre el respaldo
+        env:
+          ARCHIVO: ${{ steps.respaldo.outputs.archivo }}
+          DESTINO_URL: postgresql://postgres:postgres@localhost:5432/restaurada
+          CLAVE_RESPALDO: otra-clave-que-no-es
+        run: |
+          if bash scripts/restaurar-db.sh; then
+            echo "::error::Se pudo restaurar con una contraseña equivocada"
+            exit 1
+          fi
+
+      - name: Descifrar y restaurar en una base nueva
+        env:
+          ARCHIVO: ${{ steps.respaldo.outputs.archivo }}
+          DESTINO_URL: postgresql://postgres:postgres@localhost:5432/restaurada
+          CLAVE_RESPALDO: clave-solo-para-la-autoprueba
+        run: bash scripts/restaurar-db.sh
+
+      - name: Los datos restaurados son iguales a los originales
+        run: |
+          contar() {
+            psql "$1" -At <<'SQL'
+          select string_agg(t || ':' || n, ' ' order by t) from (
+            select 'Producto' t, count(*) n from "Producto"
+            union all select 'VarianteProducto', count(*) from "VarianteProducto"
+            union all select 'Cliente', count(*) from "Cliente"
+            union all select 'Pedido', count(*) from "Pedido"
+            union all select 'FotoProductoColor', count(*) from "FotoProductoColor") x;
+          SQL
+          }
+          a="$(contar "$ORIGEN")"
+          b="$(contar postgresql://postgres:postgres@localhost:5432/restaurada)"
+          echo "Original:   $a"
+          echo "Restaurada: $b"
+          [ -n "$a" ] && [ "$a" = "$b" ] || { echo "::error::Los datos restaurados no coinciden"; exit 1; }
