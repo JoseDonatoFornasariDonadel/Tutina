@@ -257,6 +257,22 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
   // Modal de vista ampliada de prenda
   const [productoDetalleModal, setProductoDetalleModal] = useState<ProductoPublico | null>(null);
 
+  // Con el detalle abierto: la página de fondo no se desplaza y Escape lo cierra
+  const detalleAbierto = productoDetalleModal !== null;
+  useEffect(() => {
+    if (!detalleAbierto) return;
+    const overflowPrevio = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setProductoDetalleModal(null);
+    };
+    window.addEventListener('keydown', alTeclear);
+    return () => {
+      document.body.style.overflow = overflowPrevio;
+      window.removeEventListener('keydown', alTeclear);
+    };
+  }, [detalleAbierto]);
+
   const cargarVidriera = useCallback(async () => {
     setLoading(true);
     try {
@@ -616,7 +632,8 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
     <div className="min-h-screen flex flex-col bg-slate-50">
       {/* Barra Superior Promocional */}
       <div className="bg-rose-600 text-white text-xs py-2 px-4 text-center font-medium">
-        <span>
+        <span className="sm:hidden">✨ Consultanos por WhatsApp, sin registrarte</span>
+        <span className="hidden sm:inline">
           ✨ Catálogo Online Oficial de <strong>{tienda.nombreComercial}</strong> • Elegí tu
           prenda, talle y color y consultanos directo por WhatsApp sin registrarte ✨
         </span>
@@ -783,7 +800,11 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
         </aside>
 
         {/* Columna Central: Grilla de Prendas y Paginación (centrada en el escritorio) */}
-        <main className="min-w-0 w-full max-w-6xl mx-auto space-y-6">
+        <main
+          className={`min-w-0 w-full max-w-6xl mx-auto space-y-6 ${
+            totalUnidadesBolsa > 0 ? 'max-sm:pb-24' : ''
+          }`}
+        >
           {/* Grilla de Prendas del Catálogo Público */}
           {loading ? (
             <SkeletonGrillaProductos />
@@ -806,7 +827,7 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-5">
             {productos.map((prod, indiceProd) => {
               const {
                 coloresUnicos,
@@ -825,27 +846,27 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                   className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md transition flex flex-col justify-between group"
                 >
                   <div>
-                    {/* Imagen de la Prenda */}
+                    {/* Imagen de la Prenda (en celular, formato vertical 4:5) */}
                     <div
                       onClick={() => setProductoDetalleModal(prod)}
-                      className="relative h-64 bg-slate-100 overflow-hidden cursor-pointer"
+                      className="relative aspect-[4/5] sm:aspect-auto sm:h-64 bg-slate-100 overflow-hidden cursor-pointer"
                     >
                       <ImagenProducto
                         src={imagenMostrar}
                         alt={prod.nombre}
                         fill
-                        sizes="(min-width: 1280px) 30vw, (min-width: 640px) 45vw, 100vw"
+                        sizes="(min-width: 1280px) 30vw, 50vw"
                         priority={indiceProd < 3}
                         className="object-cover group-hover:scale-105 transition duration-300"
                       />
 
                       {/* Badges Superiores */}
-                      <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-                        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-900/80 text-white backdrop-blur-xs">
+                      <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-col items-start gap-1.5">
+                        <span className="hidden sm:inline px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-900/80 text-white backdrop-blur-xs">
                           {prod.categoria.nombreCategoria}
                         </span>
                         {prod.porcentajeDescuento > 0 && (
-                          <span className="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-rose-600 text-white shadow-xs">
+                          <span className="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] font-extrabold bg-rose-600 text-white shadow-xs">
                             -{prod.porcentajeDescuento}% OFF
                           </span>
                         )}
@@ -853,22 +874,22 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                     </div>
 
                     {/* Cuerpo de la Tarjeta */}
-                    <div className="p-4 space-y-3">
+                    <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
                       <div>
                         <h2
                           onClick={() => setProductoDetalleModal(prod)}
-                          className="text-sm font-bold text-slate-900 line-clamp-1 hover:text-rose-600 cursor-pointer"
+                          className="text-sm font-bold text-slate-900 line-clamp-2 sm:line-clamp-1 leading-snug hover:text-rose-600 cursor-pointer"
                         >
                           {prod.nombre}
                         </h2>
-                        <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">
+                        <p className="hidden sm:block text-xs text-slate-500 line-clamp-2 mt-0.5">
                           {prod.descripcion}
                         </p>
                       </div>
 
                       {/* Precio de Venta (Sin exponer jamás costo ni markup) */}
-                      <div className="flex items-baseline gap-2 pt-1 border-t border-slate-100">
-                        <span className="text-xl font-extrabold text-slate-900">
+                      <div className="flex flex-wrap items-baseline gap-x-2 sm:pt-1 sm:border-t border-slate-100">
+                        <span className="text-base sm:text-xl font-extrabold text-slate-900">
                           ${prod.precioFinal.toLocaleString('es-AR')}
                         </span>
                         {prod.porcentajeDescuento > 0 && (
@@ -878,8 +899,25 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                         )}
                       </div>
 
-                      {/* Selector Dinámico de Color y Talles */}
-                      <div className="space-y-2.5">
+                      {/* Celular: colores disponibles como puntos; talle y color se eligen en el detalle */}
+                      <div className="sm:hidden flex items-center gap-1.5" aria-label="Colores disponibles">
+                        {coloresUnicos.slice(0, 5).map((c) => (
+                          <span
+                            key={c.codColor}
+                            title={c.nombreColor}
+                            className="w-4 h-4 rounded-full border border-slate-300 shadow-2xs"
+                            style={{ backgroundColor: c.codigoHex }}
+                          />
+                        ))}
+                        {coloresUnicos.length > 5 && (
+                          <span className="text-[11px] font-bold text-slate-500">
+                            +{coloresUnicos.length - 5}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Selector Dinámico de Color y Talles (desde sm) */}
+                      <div className="hidden sm:block space-y-2.5">
                         {/* 1. Selector de Color */}
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-[11px]">
@@ -977,8 +1015,19 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                     </div>
                   </div>
 
-                  {/* Botones de Consulta por WhatsApp */}
-                  <div className="p-4 pt-0 space-y-2">
+                  {/* Celular: un solo botón que abre el detalle para elegir talle y color */}
+                  <div className="sm:hidden p-3 pt-0">
+                    <button
+                      type="button"
+                      onClick={() => setProductoDetalleModal(prod)}
+                      className="w-full min-h-11 inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 text-white text-sm font-bold active:bg-slate-700 cursor-pointer"
+                    >
+                      Elegir talle
+                    </button>
+                  </div>
+
+                  {/* Botones de Consulta por WhatsApp (desde sm) */}
+                  <div className="hidden sm:block p-4 pt-0 space-y-2">
                     <a
                       href={armarLinkWhatsAppIndividual(prod, varianteActiva)}
                       target="_blank"
@@ -1289,11 +1338,14 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
       {productoDetalleModal && (
         <div
           onClick={() => setProductoDetalleModal(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-xs sm:p-4"
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={productoDetalleModal.nombre}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl border border-slate-200 max-w-2xl w-full overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2"
+            className="animate-sheet-entrada bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 max-w-2xl w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto scroll-touch md:overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2"
           >
             {(() => {
               const {
@@ -1306,7 +1358,16 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
 
               return (
                 <>
-                  <div className="relative h-72 md:h-full bg-slate-100">
+                  <div className="relative h-60 sm:h-72 md:h-full bg-slate-100">
+                    {/* Cerrar sobre la foto, a mano en celular */}
+                    <button
+                      type="button"
+                      onClick={() => setProductoDetalleModal(null)}
+                      aria-label="Cerrar"
+                      className="md:hidden absolute top-3 right-3 z-10 touch-target rounded-full bg-white/90 text-slate-700 shadow-sm cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
                     <ImagenProducto
                       src={imgModal}
                       alt={`${productoDetalleModal.nombre} - ${colorModal?.nombreColor || ''}`}
@@ -1316,7 +1377,7 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                     />
                   </div>
 
-                  <div className="p-6 flex flex-col justify-between space-y-4">
+                  <div className="p-4 sm:p-6 flex flex-col justify-between space-y-4 md:overflow-y-auto md:max-h-[90vh]">
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-2">
                         <div>
@@ -1330,7 +1391,8 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                         <button
                           type="button"
                           onClick={() => setProductoDetalleModal(null)}
-                          className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 cursor-pointer"
+                          aria-label="Cerrar"
+                          className="hidden md:inline-flex p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 cursor-pointer"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -1369,7 +1431,7 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                                 onClick={() =>
                                   seleccionarColorProducto(productoDetalleModal, c.codColor)
                                 }
-                                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border transition cursor-pointer ${
+                                className={`inline-flex items-center gap-2 px-3 min-h-11 sm:min-h-0 py-1.5 rounded-full text-sm sm:text-xs font-bold border transition cursor-pointer ${
                                   esActivo
                                     ? 'border-rose-600 bg-rose-50 text-rose-900 ring-2 ring-rose-500/40'
                                     : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'
@@ -1418,7 +1480,7 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                                     [productoDetalleModal.codProducto]: v.codVariante,
                                   }));
                                 }}
-                                className={`inline-flex items-center justify-center gap-1.5 min-w-[3rem] px-3.5 py-2 rounded-xl text-xs font-bold border transition ${
+                                className={`inline-flex items-center justify-center gap-1.5 min-w-[3rem] min-h-11 sm:min-h-0 px-3.5 py-2 rounded-xl text-sm sm:text-xs font-bold border transition ${
                                   agotada
                                     ? 'border-slate-200 bg-slate-100 text-slate-400 line-through opacity-50 cursor-not-allowed'
                                     : sel
@@ -1435,12 +1497,12 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                       </div>
                     </div>
 
-                    <div className="space-y-2 pt-4 border-t border-slate-100">
+                    <div className="max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:px-4 max-sm:pb-safe-4 bg-white space-y-2 pt-3 sm:pt-4 border-t border-slate-100">
                       <a
                         href={armarLinkWhatsAppIndividual(productoDetalleModal, varModal)}
                         target="_blank"
                         rel="noreferrer"
-                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition"
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 min-h-12 sm:min-h-0 py-2.5 rounded-xl bg-emerald-600 text-white text-sm sm:text-xs font-bold hover:bg-emerald-700 transition"
                       >
                         <MessageCircle className="w-4 h-4" />
                         Consultar esta prenda por WhatsApp
@@ -1454,7 +1516,7 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                           setProductoDetalleModal(null);
                           setDrawerAbierto(true);
                         }}
-                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 text-xs font-bold hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 min-h-12 sm:min-h-0 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 text-sm sm:text-xs font-bold hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
                       >
                         <Plus className="w-4 h-4" /> Sumar a mi consulta grupal
                       </button>
