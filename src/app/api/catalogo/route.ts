@@ -567,10 +567,14 @@ export async function POST(request: Request) {
     }
 
     const primeraImagenVariante = variantesValidadas.find((v) => v.imagenVariante)?.imagenVariante;
+    // fotosPendientes: el panel sube la galería de cada color justo después de crear la
+    // prenda; la primera foto que llegue pasa a ser la foto principal.
     const imagenPrincipalPrenda =
       primeraImagenVariante ||
       body.imagen ||
-      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80';
+      (body.fotosPendientes
+        ? ''
+        : 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80');
 
     const nuevoProd = await prisma.producto.create({
       data: {

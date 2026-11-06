@@ -15,7 +15,7 @@ import { GaleriaFotos } from '@/components/galeria/GaleriaFotos';
 import { ImagenProducto } from '@/components/tienda/ImagenProducto';
 import { comprimirImagen } from '@/lib/comprimirImagen';
 import { mapearTextoAColorHex } from '@/lib/colores';
-import type { GaleriaPrenda } from '@/components/catalogo/galeriaPrenda';
+import type { AccionesGaleria, GaleriaPrenda } from '@/components/catalogo/galeriaPrenda';
 
 export interface ColorDeLaPrenda {
   codColor: number;
@@ -28,7 +28,11 @@ export interface ColorDeLaPrenda {
 interface GestionFotosSheetProps {
   abierto: boolean;
   onCerrar: () => void;
-  codProducto: number;
+  /**
+   * Qué hacer con cada cambio: guardarlo al instante en el servidor (prenda existente,
+   * accionesGaleriaServidor) o en memoria hasta crear la prenda (useGaleriaBorrador).
+   */
+  acciones: AccionesGaleria;
   nombreProducto: string;
   /** Colores que tiene la prenda en la edición actual */
   colores: ColorDeLaPrenda[];
@@ -37,8 +41,10 @@ interface GestionFotosSheetProps {
   error: string | null;
   faltaActualizarBase: boolean;
   onReintentar: () => void;
-  /** La galería cambió en el servidor (se guardó al instante) */
-  onGaleriaActualizada: (galeria: GaleriaPrenda) => void;
+  /** La galería cambió en el servidor (solo en modo "guardado") */
+  onGaleriaActualizada?: (galeria: GaleriaPrenda) => void;
+  /** z-index del panel, para apilarlo sobre otra ventana */
+  zIndexClass?: string;
   /** Color que se muestra al abrir */
   codColorInicial?: number;
 }
@@ -59,7 +65,7 @@ type Aviso = { tipo: 'ok' | 'error'; texto: string } | null;
 export function GestionFotosSheet({
   abierto,
   onCerrar,
-  codProducto,
+  acciones,
   nombreProducto,
   colores,
   galeria,
@@ -69,7 +75,9 @@ export function GestionFotosSheet({
   onReintentar,
   onGaleriaActualizada,
   codColorInicial,
+  zIndexClass,
 }: GestionFotosSheetProps) {
+  const esBorrador = acciones.modo === 'borrador';
   const [codColorActivo, setCodColorActivo] = useState<number | undefined>(codColorInicial);
   const [subiendo, setSubiendo] = useState<SubidaPendiente[]>([]);
   const [progreso, setProgreso] = useState<{ actual: number; total: number } | null>(null);
@@ -122,13 +130,11 @@ export function GestionFotosSheet({
   const lugaresLibres = Math.max(0, maxFotos - fotos.length - subiendo.length);
   const ocupado = subiendo.length > 0 || ocupadoId !== null;
 
-  const pedir = async (url: string, init: RequestInit, textoOk: string) => {
-    const res = await fetch(url, init);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'No se pudo guardar el cambio.');
-    if (data.galeria) onGaleriaActualizada(data.galeria);
+  // Ejecuta una acción (servidor o borrador) y avisa el resultado
+  const ejecutar = async (accion: Promise<GaleriaPrenda | void>, textoOk: string) => {
+    const nueva = await accion;
+    if (nueva) onGaleriaActualizada?.(nueva);
     if (textoOk) setAviso({ tipo: 'ok', texto: textoOk });
-    return data;
   };
 
   const agregarFotos = async (archivos: FileList | null) => {
@@ -151,15 +157,7 @@ export function GestionFotosSheet({
       for (let i = 0; i < aSubir.length; i++) {
         setProgreso({ actual: i + 1, total: aSubir.length });
         const imagen = await comprimirImagen(aSubir[i]);
-        await pedir(
-          '/api/catalogo/fotos',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ codProducto, codColor: colorActivo.codColor, imagen }),
-          },
-          ''
-        );
+        await ejecutar(acciones.agregar(colorActivo.codColor, imagen), '');
         subidas++;
         URL.revokeObjectURL(pendientes[i].vistaPrevia);
         setSubiendo((prev) => prev.filter((p) => p.id !== pendientes[i].id));
@@ -175,7 +173,7 @@ export function GestionFotosSheet({
       setAviso({
         tipo: 'error',
         texto:
-          (subidas > 0 ? `Se guardaron ${subidas} de ${aSubir.length}. ` : '') +
+          (subidas > 0 ? `Se agregaron ${subidas} de ${aSubir.length}. ` : '') +
           (e instanceof Error ? e.message : 'No se pudo subir la foto.'),
       });
     } finally {
@@ -189,7 +187,8 @@ export function GestionFotosSheet({
   const eliminarFoto = async (idFoto: number) => {
     setOcupadoId(idFoto);
     try {
-      await pedir(`/api/catalogo/fotos?idFoto=${idFoto}`, { method: 'DELETE' }, 'Foto eliminada.');
+      if (!colorActivo) return;
+      await ejecutar(acciones.eliminar(colorActivo.codColor, idFoto), 'Foto eliminada.');
     } catch (e) {
       setAviso({ tipo: 'error', texto: e instanceof Error ? e.message : 'No se pudo eliminar.' });
     } finally {
@@ -202,17 +201,11 @@ export function GestionFotosSheet({
     if (!colorActivo) return;
     setOcupadoId(idFoto);
     try {
-      await pedir(
-        '/api/catalogo/fotos',
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            codProducto,
-            codColor: colorActivo.codColor,
-            orden: [idFoto, ...fotos.map((f) => f.idFoto).filter((id) => id !== idFoto)],
-          }),
-        },
+      await ejecutar(
+        acciones.ordenar(colorActivo.codColor, [
+          idFoto,
+          ...fotos.map((f) => f.idFoto).filter((id) => id !== idFoto),
+        ]),
         'Portada actualizada: es la primera foto que se ve en la tienda.'
       );
     } catch (e) {
@@ -235,6 +228,7 @@ export function GestionFotosSheet({
       subtitulo={nombreProducto}
       alturaMaxima="92dvh"
       anchoEscritorio="sm:max-w-3xl"
+      zIndexClass={zIndexClass}
       accesorioTitulo={
         galeria ? (
           <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
@@ -255,7 +249,9 @@ export function GestionFotosSheet({
             ) : (
               <>
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                Cada cambio se guarda al instante.
+                {esBorrador
+                  ? 'Se guardan al crear la prenda.'
+                  : 'Cada cambio se guarda al instante.'}
               </>
             )}
           </p>
@@ -349,7 +345,11 @@ export function GestionFotosSheet({
                   {colorActivo.nombreColor}. La primera es la portada.
                 </>
               ) : (
-                <>Este color no tiene talles activos: las fotos quedan guardadas para cuando los agregues.</>
+                <>
+                  {esBorrador
+                    ? 'Este color no tiene talles: sus fotos no se guardan si no le agregás uno en «Gestionar variantes».'
+                    : 'Este color no tiene talles activos: las fotos quedan guardadas para cuando los agregues.'}
+                </>
               )}
             </p>
           )}

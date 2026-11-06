@@ -10,21 +10,17 @@ import {
   AlertTriangle,
   CheckCircle2,
   Percent,
-  Layers,
   Sparkles,
   X,
   RefreshCw,
   Trash2,
   Building2,
   BookmarkPlus,
-  Image as ImageIcon,
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
   EyeOff,
   SlidersHorizontal,
-  Camera,
-  Images,
 } from 'lucide-react';
 import type { ColorOpcion } from '@/components/catalogo/ColorSelector';
 import {
@@ -38,8 +34,15 @@ import {
   GestionVariantesSheet,
   type VarianteEditable,
 } from '@/components/catalogo/GestionVariantesSheet';
-import { useGaleriaPrenda, type GaleriaPrenda } from '@/components/catalogo/galeriaPrenda';
-import { ImagenProducto } from '@/components/tienda/ImagenProducto';
+import {
+  accionesGaleriaServidor,
+  useGaleriaPrenda,
+  type GaleriaPrenda,
+} from '@/components/catalogo/galeriaPrenda';
+import {
+  TarjetasFotosVariantes,
+  agruparColoresDeVariantes,
+} from '@/components/catalogo/TarjetasFotosVariantes';
 import { BottomSheet } from '@/components/mobile/BottomSheet';
 import { mapearTextoAColorHex } from '@/lib/colores';
 import {
@@ -244,6 +247,12 @@ export default function CatalogoPage() {
   } = useGaleriaPrenda(productoEditando?.codProducto ?? null);
   const [panelFotos, setPanelFotos] = useState<{ codColor?: number } | null>(null);
   const [panelVariantes, setPanelVariantes] = useState(false);
+  // Prenda existente: cada cambio de fotos se guarda al instante en el servidor
+  const codProductoEditando = productoEditando?.codProducto ?? null;
+  const accionesGaleria = useMemo(
+    () => accionesGaleriaServidor(codProductoEditando ?? 0),
+    [codProductoEditando]
+  );
   // Las fotos se guardan al instante: al cerrar la edición se refresca el catálogo
   const fotosCambiadas = useRef(false);
 
@@ -287,24 +296,11 @@ export default function CatalogoPage() {
   );
 
   // Colores de la prenda en la edición, con sus talles (comparten las fotos)
-  const coloresEnEdicion = useMemo<ColorDeLaPrenda[]>(() => {
-    if (!productoEditando) return [];
-    const mapa = new Map<number, ColorDeLaPrenda>();
-    for (const v of productoEditando.variantes) {
-      const cod = v.codColor ?? v.color?.codColor;
-      if (cod === undefined) continue;
-      const c =
-        colores.find((x) => x.codColor === cod) ??
-        v.color ?? { codColor: cod, nombreColor: 'Color', codigoHex: '#111827' };
-      const item = mapa.get(cod) ?? { ...c, codColor: cod, talles: [] };
-      const nombreTalle =
-        talles.find((t) => t.codTalle === (v.codTalle ?? v.talle?.codTalle))?.nombreTalle ??
-        v.talle?.nombreTalle;
-      if (nombreTalle && !item.talles.includes(nombreTalle)) item.talles.push(nombreTalle);
-      mapa.set(cod, item);
-    }
-    return [...mapa.values()];
-  }, [productoEditando, colores, talles]);
+  const coloresEnEdicion = useMemo<ColorDeLaPrenda[]>(
+    () =>
+      productoEditando ? agruparColoresDeVariantes(productoEditando.variantes, colores, talles) : [],
+    [productoEditando, colores, talles]
+  );
 
   // Hay cambios de talle, color o stock que todavía no se guardaron
   const variantesSinGuardar = useMemo(() => {
@@ -1794,150 +1790,18 @@ export default function CatalogoPage() {
               )}
 
               {/* Fotos y variantes: cada una se gestiona en su propio panel */}
-              <div id="edicion-talles" className="scroll-mt-32 sm:scroll-mt-4 space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-                  <Images className="w-4 h-4 text-slate-500" /> Fotos y variantes
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {(() => {
-                    const totalFotos = (galeria?.colores ?? []).reduce(
-                      (acc, c) => acc + c.fotos.length,
-                      0
-                    );
-                    const coloresConFotos = (galeria?.colores ?? []).filter(
-                      (c) => c.fotos.length > 0
-                    ).length;
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => setPanelFotos({})}
-                        className="group text-left p-4 rounded-2xl border border-slate-200 bg-white hover:border-rose-300 hover:shadow-md active:scale-[0.99] transition cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="w-12 h-12 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                            <Camera className="w-6 h-6" />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-base font-extrabold text-slate-900">
-                              Gestionar fotos
-                            </div>
-                            <div className="text-xs text-slate-500">
-                              {cargandoGaleria && !galeria
-                                ? 'Cargando fotos…'
-                                : faltaActualizarBase
-                                  ? 'Falta actualizar la base de datos'
-                                  : totalFotos === 0
-                                    ? 'Sin fotos todavía'
-                                    : `${totalFotos} ${totalFotos === 1 ? 'foto' : 'fotos'} en ${coloresConFotos} ${coloresConFotos === 1 ? 'color' : 'colores'}`}
-                            </div>
-                          </div>
-                          <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-rose-600 transition shrink-0" />
-                        </div>
-                        {/* Portada de cada color */}
-                        <div className="mt-3 flex gap-2 overflow-hidden">
-                          {coloresEnEdicion.slice(0, 5).map((c) => {
-                            const fotosColor =
-                              galeria?.colores.find((g) => g.codColor === c.codColor)?.fotos ?? [];
-                            return (
-                              <span
-                                key={c.codColor}
-                                className="relative w-12 h-14 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 shrink-0"
-                                title={`${c.nombreColor}: ${fotosColor.length} foto(s)`}
-                              >
-                                {fotosColor[0] ? (
-                                  <ImagenProducto
-                                    src={fotosColor[0].url}
-                                    alt=""
-                                    fill
-                                    sizes="48px"
-                                    className="object-cover"
-                                  />
-                                ) : (
-                                  <ImageIcon className="absolute inset-0 m-auto w-4 h-4 text-slate-300" />
-                                )}
-                                <span
-                                  className="absolute bottom-1 left-1 w-3 h-3 rounded-full border border-white shadow"
-                                  style={{
-                                    backgroundColor: mapearTextoAColorHex(c.nombreColor, c.codigoHex),
-                                  }}
-                                />
-                              </span>
-                            );
-                          })}
-                          {coloresEnEdicion.length > 5 && (
-                            <span className="w-12 h-14 rounded-lg bg-slate-100 text-xs font-bold text-slate-600 flex items-center justify-center shrink-0">
-                              +{coloresEnEdicion.length - 5}
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })()}
-
-                  {(() => {
-                    const stockTotal = productoEditando.variantes.reduce(
-                      (acc, v) => acc + (Number(v.stock) || 0),
-                      0
-                    );
-                    const criticas = productoEditando.variantes.filter((v) => v.stock < 3).length;
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => setPanelVariantes(true)}
-                        className="group text-left p-4 rounded-2xl border border-slate-200 bg-white hover:border-rose-300 hover:shadow-md active:scale-[0.99] transition cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0 shadow-sm">
-                            <Layers className="w-6 h-6" />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-base font-extrabold text-slate-900">
-                              Gestionar variantes
-                            </div>
-                            <div className="text-xs text-slate-500">
-                              {productoEditando.variantes.length}{' '}
-                              {productoEditando.variantes.length === 1 ? 'variante' : 'variantes'} ·{' '}
-                              {stockTotal} u. en stock
-                            </div>
-                          </div>
-                          <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-rose-600 transition shrink-0" />
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          {variantesSinGuardar && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-50 border border-rose-200 text-[11px] font-bold text-rose-700">
-                              Cambios sin guardar
-                            </span>
-                          )}
-                          {criticas > 0 && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-50 border border-amber-300 text-[11px] font-bold text-amber-900">
-                              <AlertTriangle className="w-3 h-3" /> {criticas} con stock bajo
-                            </span>
-                          )}
-                          {coloresEnEdicion.slice(0, 3).map((c) => (
-                            <span
-                              key={c.codColor}
-                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-semibold text-slate-700"
-                            >
-                              <span
-                                className="w-2.5 h-2.5 rounded-full border border-black/10 dark:border-white/40"
-                                style={{
-                                  backgroundColor: mapearTextoAColorHex(c.nombreColor, c.codigoHex),
-                                }}
-                              />
-                              {c.nombreColor}: {c.talles.join(', ')}
-                            </span>
-                          ))}
-                          {coloresEnEdicion.length > 3 && (
-                            <span className="px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-semibold text-slate-600">
-                              +{coloresEnEdicion.length - 3} colores
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })()}
-                </div>
-              </div>
+              <TarjetasFotosVariantes
+                id="edicion-talles"
+                className="scroll-mt-32 sm:scroll-mt-4"
+                colores={coloresEnEdicion}
+                variantes={productoEditando.variantes}
+                galeria={galeria}
+                cargandoFotos={cargandoGaleria}
+                faltaActualizarBase={faltaActualizarBase}
+                sinGuardar={variantesSinGuardar}
+                onGestionarFotos={() => setPanelFotos({})}
+                onGestionarVariantes={() => setPanelVariantes(true)}
+              />
 
               <div className="max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:-mx-4 max-sm:px-4 max-sm:pb-safe-4 bg-white flex flex-wrap items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-slate-200">
                 <button
@@ -1984,7 +1848,7 @@ export default function CatalogoPage() {
           <GestionFotosSheet
             abierto={panelFotos !== null}
             onCerrar={() => setPanelFotos(null)}
-            codProducto={productoEditando.codProducto}
+            acciones={accionesGaleria}
             nombreProducto={productoEditando.nombre}
             colores={coloresEnEdicion}
             galeria={galeria}
