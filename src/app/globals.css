@@ -411,3 +411,151 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* ==========================================================================
+   MÓVIL: áreas seguras, scroll, tamaños táctiles y animaciones de paneles
+   ========================================================================== */
+
+/* Áreas seguras (notch y barra de inicio del iPhone).
+   Requieren viewport-fit=cover, que se declara en src/app/layout.tsx. */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@utility pb-safe-4 {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+@utility px-safe {
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+/* Espacio para que el contenido no quede tapado por la barra inferior (56px + área segura) */
+@utility pb-bottom-nav {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+/* Separación de botones flotantes respecto del borde inferior */
+@utility bottom-safe-5 {
+  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Contenedor con scroll propio: inercia en iOS antiguos y sin "arrastrar" la página de fondo */
+@utility scroll-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Fila horizontal deslizable (chips de categorías) sin barra visible */
+@utility scroll-chips {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  & > * {
+    scroll-snap-align: start;
+  }
+}
+
+/* Área táctil mínima de 44x44px para botones de solo ícono */
+@utility touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@layer base {
+  html {
+    /* Sin el destello gris al tocar y sin el retraso de doble toque */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  a,
+  button,
+  [role="button"],
+  label,
+  select,
+  summary {
+    touch-action: manipulation;
+  }
+
+  /* iOS hace zoom al enfocar un campo con letra menor a 16px.
+     En pantallas chicas todos los campos usan 16px, aunque tengan text-xs. */
+  @media (max-width: 1023px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  /* En pantallas táctiles, campos y selectores con al menos 44px de alto */
+  @media (pointer: coarse) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+    select {
+      min-height: 44px;
+    }
+  }
+}
+
+/* ---------- Animaciones del Bottom Sheet ---------- */
+@keyframes sheet-entrada {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes sheet-salida {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+@keyframes sheet-fondo-entrada {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sheet-fondo-salida {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+/* En escritorio el panel aparece centrado, con un desplazamiento corto */
+@media (min-width: 640px) {
+  @keyframes sheet-entrada {
+    from { transform: translateY(24px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes sheet-salida {
+    from { transform: translateY(0); opacity: 1; }
+    to { transform: translateY(24px); opacity: 0; }
+  }
+}
+.animate-sheet-entrada {
+  animation: sheet-entrada 260ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.animate-sheet-salida {
+  animation: sheet-salida 200ms ease-in forwards;
+}
+.animate-sheet-fondo-entrada {
+  animation: sheet-fondo-entrada 200ms ease-out;
+}
+.animate-sheet-fondo-salida {
+  animation: sheet-fondo-salida 200ms ease-in forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-sheet-entrada,
+  .animate-sheet-salida,
+  .animate-sheet-fondo-entrada,
+  .animate-sheet-fondo-salida {
+    animation-duration: 1ms;
+  }
+}
+
+/* Aro del botón central de la barra inferior: toma el color de la superficie en oscuro */
+html.dark .ring-white {
+  --tw-ring-color: var(--dk-superficie) !important;
+}

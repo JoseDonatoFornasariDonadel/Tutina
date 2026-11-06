@@ -32,6 +32,7 @@ import {
   type NuevoProductoCreado,
 } from '@/components/catalogo/NuevaPrendaModal';
 import type { ColorOpcion } from '@/components/catalogo/ColorSelector';
+import { MobileDataCard } from '@/components/mobile/MobileDataCard';
 import { agregarCategoria } from '@/components/catalogo/CategoriaSelector';
 import { comprimirImagen } from '@/lib/comprimirImagen';
 import { mapearTextoAColorHex } from '@/lib/colores';
@@ -1105,6 +1106,7 @@ export default function ProveedoresFacturasPage() {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">IVA (%)</label>
                 <input
                   type="number"
+                inputMode="decimal"
                   step="0.5"
                   value={ivaFactura}
                   onChange={(e) => setIvaFactura(Number(e.target.value))}
@@ -1272,6 +1274,7 @@ export default function ProveedoresFacturasPage() {
                           </label>
                           <input
                             type="number"
+                inputMode="numeric"
                             min={1}
                             required
                             value={linea.cantidadDI}
@@ -1290,6 +1293,7 @@ export default function ProveedoresFacturasPage() {
                           </label>
                           <input
                             type="number"
+                inputMode="decimal"
                             min={1}
                             required
                             value={linea.precioIndividual}
@@ -1341,7 +1345,7 @@ export default function ProveedoresFacturasPage() {
           </form>
 
           {/* Historial de Facturas Registradas */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Truck className="w-5 h-5 text-slate-700" /> Historial de Facturas e Ingresos de
               Stock
@@ -1352,10 +1356,60 @@ export default function ProveedoresFacturasPage() {
                 const urlComp = f.tieneComprobante
                   ? `/api/proveedores/comprobante/${f.idFactura}`
                   : null;
+                const unidadesFactura = f.detallesIngreso.reduce((acc, di) => acc + di.cantidadDI, 0);
                 return (
+                  <React.Fragment key={f.idFactura}>
+                  {/* Móvil: tarjeta compacta, el detalle se abre con un toque */}
+                  <div className="sm:hidden">
+                    <MobileDataCard
+                      etiqueta={
+                        <span className="font-mono text-xs font-bold bg-slate-900 text-white px-2 py-0.5 rounded-md shrink-0">
+                          {f.nroFactura}
+                        </span>
+                      }
+                      titulo={f.proveedor.nombreProveedor}
+                      subtitulo={`${new Date(f.fechaFactura).toLocaleDateString('es-AR')} • ${unidadesFactura} u. ingresadas`}
+                      valor={`$${f.costoTotal.toLocaleString('es-AR')}`}
+                      valorDetalle={`IVA ${f.ivaFactura}%`}
+                      acciones={
+                        urlComp && (
+                          <a
+                            href={urlComp}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex min-h-11 items-center gap-2 px-4 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-sm"
+                          >
+                            <FileText className="w-4 h-4" /> Ver comprobante
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        )
+                      }
+                    >
+                      <ul className="divide-y divide-slate-100">
+                        {f.detallesIngreso.map((di) => (
+                          <li key={di.idDetalleIngreso} className="py-2 flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="font-semibold text-slate-800 truncate">
+                                {di.variante.producto.nombre}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                {di.variante.talle.nombreTalle} • {di.variante.color.nombreColor}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="font-bold text-slate-900">+{di.cantidadDI} u.</div>
+                              <div className="text-xs text-slate-500">
+                                ${di.precioIndividual.toLocaleString('es-AR')} c/u
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </MobileDataCard>
+                  </div>
+
                   <div
-                    key={f.idFactura}
-                    className="p-4 rounded-xl border border-slate-200 space-y-2 text-xs"
+                    className="hidden sm:block p-4 rounded-xl border border-slate-200 space-y-2 text-xs"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -1397,6 +1451,7 @@ export default function ProveedoresFacturasPage() {
                       ))}
                     </div>
                   </div>
+                  </React.Fragment>
                 );
               })}
             </div>
@@ -1689,6 +1744,7 @@ export default function ProveedoresFacturasPage() {
                             <span className="text-[10px] text-slate-400 font-semibold">Costo:</span>
                             <input
                               type="number"
+                inputMode="decimal"
                               min={1}
                               value={item.precioIndividual}
                               onChange={(e) =>

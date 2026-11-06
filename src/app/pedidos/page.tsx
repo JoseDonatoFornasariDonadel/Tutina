@@ -587,6 +587,7 @@ function HistorialPedidosContent() {
                         </label>
                         <input
                           type="number"
+                inputMode="decimal"
                           required
                           min={1}
                           max={totalAPagar}
@@ -641,8 +642,35 @@ function HistorialPedidosContent() {
                   </form>
                 )}
 
-                {/* Detalle de Prendas del Pedido */}
-                <div className="overflow-x-auto">
+                {/* Detalle de Prendas del Pedido: lista compacta en móvil */}
+                <ul className="sm:hidden divide-y divide-slate-100 text-sm">
+                  {ped.detallesPedido.map((d) => (
+                    <li key={d.idDetallePedido} className="py-2.5 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-slate-800 truncate">
+                          {d.variante.producto.nombre}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {d.variante.talle.nombreTalle} • {d.variante.color.nombreColor} •{' '}
+                          {d.Cantidad} × ${d.precioUnitarioVenta.toLocaleString('es-AR')}
+                          {d.porcentajeDescuentoAplicado > 0 &&
+                            ` (-${d.porcentajeDescuentoAplicado}%)`}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-bold text-slate-900">
+                          ${d.subtotal.toLocaleString('es-AR')}
+                        </div>
+                        <div className="text-[11px] text-slate-400">
+                          Costo ${d.precioUnitarioCostoHistorico.toLocaleString('es-AR')}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                {/* Tabla completa desde sm */}
+                <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead className="text-slate-400 border-b border-slate-100">
                       <tr>

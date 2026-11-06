@@ -323,6 +323,7 @@ export default function ReportesFinancierosPage() {
             </select>
             <input
               type="number"
+                inputMode="decimal"
               min={1}
               required
               value={nuevoGasto.montoGasto}

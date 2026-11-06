@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { LogoDual } from '@/components/LogoDual';
+import { BottomNav } from '@/components/mobile/BottomNav';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   ShoppingBag,
@@ -287,7 +288,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Navegación Principal */}
-      <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
+      <nav className="p-3 space-y-1 flex-1 overflow-y-auto scroll-touch">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive =
@@ -400,13 +401,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     >
       <div className="min-h-screen flex flex-col lg:flex-row bg-slate-50 transition-colors duration-200">
         {/* Barra Superior Compacta en Móvil con Botón de Menú Lateral Desplegable */}
-        <header className="lg:hidden sticky top-0 z-30 bg-white border-b border-slate-200 px-3.5 h-16 flex items-center justify-between gap-3 shadow-xs">
+        <header className="lg:hidden sticky top-0 z-30 bg-white border-b border-slate-200 px-3.5 box-content h-14 pt-safe flex items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-2.5 min-w-0">
             <button
               type="button"
               onClick={() => setMenuMovilAbierto(true)}
               aria-label="Abrir menú de gestión"
-              className="relative p-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-slate-700 hover:border-rose-300 hover:text-rose-600 transition cursor-pointer shrink-0"
+              className="relative touch-target rounded-xl border border-slate-200 bg-slate-50/70 text-slate-700 hover:border-rose-300 hover:text-rose-600 transition cursor-pointer shrink-0"
             >
               <Menu className="w-5 h-5" />
               {totalAlertasActivas > 0 && (
@@ -438,7 +439,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             type="button"
             onClick={toggleDarkMode}
             title={darkMode ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
-            className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:border-rose-300 hover:text-rose-600 transition cursor-pointer shrink-0 bg-slate-50/70"
+            className="touch-target rounded-xl border border-slate-200 text-slate-600 hover:border-rose-300 hover:text-rose-600 transition cursor-pointer shrink-0 bg-slate-50/70"
           >
             {darkMode ? (
               <Sun className="w-4 h-4 text-amber-400" />
@@ -456,7 +457,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <aside
               onClick={(e) => e.stopPropagation()}
-              className="w-80 max-w-[85vw] bg-white h-full border-r border-slate-200 flex flex-col shadow-2xl overflow-hidden"
+              className="w-80 max-w-[85vw] bg-white h-full border-r border-slate-200 flex flex-col shadow-2xl overflow-hidden pt-safe pb-safe"
             >
               {renderContenidoSidebar(true)}
             </aside>
@@ -470,8 +471,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Contenido Principal */}
         <main className="flex-1 min-w-0">
-          <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">{children}</div>
+          <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 pb-bottom-nav lg:pb-8">{children}</div>
         </main>
+
+        {/* Barra de navegación inferior (zona del pulgar), solo en móvil */}
+        <BottomNav
+          onAbrirMas={() => setMenuMovilAbierto(true)}
+          alertas={totalAlertasActivas}
+        />
       </div>
     </AppContext.Provider>
   );

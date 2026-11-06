@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AppShell } from '@/components/layout/AppShell';
 
@@ -6,6 +6,18 @@ export const metadata: Metadata = {
   title: 'Tutina | Sistema de Gestión de Indumentaria & E-Commerce',
   description:
     'Sistema integral de gestión de catálogo, costos, markup, pedidos, alertas de stock por WhatsApp y reportes financieros de Tutina.',
+};
+
+// viewport-fit=cover permite usar env(safe-area-inset-*) para respetar el notch del iPhone.
+// No se limita el zoom (maximumScale) para no afectar la accesibilidad.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#18181b' },
+  ],
 };
 
 const aplicarTemaGuardadoScript = `

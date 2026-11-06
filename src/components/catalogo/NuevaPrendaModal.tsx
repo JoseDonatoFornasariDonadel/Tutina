@@ -758,6 +758,7 @@ export function NuevaPrendaModal({
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 required
                 value={nuevoProdForm.precioCosto}
                 onChange={(e) => {
@@ -778,6 +779,7 @@ export function NuevaPrendaModal({
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 required
                 value={nuevoProdForm.porcentajeMarkup}
                 onChange={(e) => {
@@ -798,6 +800,7 @@ export function NuevaPrendaModal({
               </span>
               <input
                 type="number"
+                inputMode="decimal"
                 required
                 value={nuevoProdForm.precio}
                 onChange={(e) =>
@@ -852,6 +855,7 @@ export function NuevaPrendaModal({
                   </label>
                   <input
                     type="number"
+                inputMode="decimal"
                     min={1}
                     max={90}
                     value={nuevoDescRapido.porcentajeDesc}
@@ -1050,6 +1054,7 @@ export function NuevaPrendaModal({
                       </label>
                       <input
                         type="number"
+                inputMode="numeric"
                         min={0}
                         required
                         value={item.stock}
