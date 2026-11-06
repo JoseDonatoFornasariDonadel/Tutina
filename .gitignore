@@ -37,3 +37,8 @@ next-env.d.ts
 # local sqlite databases (if any remain locally)
 prisma/*.db
 prisma/*.db-journal
+
+# respaldos de la base (tienen datos de clientes: nunca se suben al repositorio)
+/respaldos/
+*.dump
+*.dump.gpg
