@@ -390,3 +390,18 @@ model AlertaWhatsAppLog {
   @@index([fechaDisparo])
   @@index([leidaEnPanel])
 }
+
+// ==========================================
+// 7. SEGURIDAD DEL ACCESO AL PANEL
+// ==========================================
+// Intentos de inicio de sesión, para frenar a quien prueba contraseñas.
+// "clave" es una huella cifrada de la conexión (no se guarda la IP).
+model IntentoAccesoAdmin {
+  idIntento Int      @id @default(autoincrement())
+  clave     String
+  exitoso   Boolean  @default(false)
+  fecha     DateTime @default(now())
+
+  @@index([clave, fecha])
+  @@index([fecha])
+}

@@ -6,6 +6,16 @@ import {
   verificarTokenSesionAdmin,
   compararSeguro,
 } from '@/lib/auth';
+import {
+  claveDeIp,
+  consultarBloqueo,
+  obtenerIp,
+  registrarIntento,
+  textoEspera,
+} from '@/lib/limiteAcceso';
+
+// En producción (HTTPS) la cookie de sesión solo viaja cifrada
+const COOKIE_SEGURA = process.env.NODE_ENV === 'production';
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -34,17 +44,35 @@ export async function POST(request: Request) {
       );
     }
 
+    // Demasiados intentos fallidos desde esta conexión: se frena sin revisar la contraseña
+    const clave = claveDeIp(obtenerIp(request.headers));
+    const bloqueo = await consultarBloqueo(clave);
+    if (bloqueo.bloqueado) {
+      return NextResponse.json(
+        {
+          error: `Demasiados intentos fallidos. Esperá ${textoEspera(
+            bloqueo.segundosRestantes
+          )} y volvé a intentar.`,
+        },
+        { status: 429, headers: { 'Retry-After': String(bloqueo.segundosRestantes) } }
+      );
+    }
+
     const usuarioValido =
       usuarioIngresado.toLowerCase() === adminUserEsperado.toLowerCase();
     const passwordValida = compararSeguro(passwordIngresada, adminPassEsperada);
 
     if (!usuarioValido || !passwordValida) {
+      await registrarIntento(clave, false);
+      // Una pequeña espera hace más lento probar contraseñas en serie
+      await new Promise((r) => setTimeout(r, 400));
       return NextResponse.json(
         { error: 'Usuario o contraseña incorrectos. Acceso exclusivo para administración.' },
         { status: 401 }
       );
     }
 
+    await registrarIntento(clave, true);
     const token = await generarTokenSesionAdmin(usuarioIngresado);
     const response = NextResponse.json({ ok: true, usuario: usuarioIngresado });
 
@@ -52,6 +80,7 @@ export async function POST(request: Request) {
       name: ADMIN_COOKIE_NAME,
       value: token,
       httpOnly: true,
+      secure: COOKIE_SEGURA,
       sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 días
@@ -69,6 +98,7 @@ export async function DELETE() {
     name: ADMIN_COOKIE_NAME,
     value: '',
     httpOnly: true,
+    secure: COOKIE_SEGURA,
     sameSite: 'lax',
     path: '/',
     maxAge: 0,

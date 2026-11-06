@@ -36,6 +36,7 @@ ALTER TABLE public."PedidoFormaPago" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."CategoriaGasto" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."GastoOperativo" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."AlertaWhatsAppLog" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."IntentoAccesoAdmin" ENABLE ROW LEVEL SECURITY;
 
 -- Quitar permisos de los roles públicos de Supabase sobre el esquema public
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;

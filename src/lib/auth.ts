@@ -25,9 +25,25 @@ async function hmacSha256Hex(message: string, secret: string): Promise<string> {
     .join('');
 }
 
-export async function generarTokenSesionAdmin(usuario: string): Promise<string> {
-  const exp = Date.now() + 1000 * 60 * 60 * 24 * 7; // 7 días
-  const payload = `${usuario.toLowerCase()}.${exp}`;
+export const DURACION_SESION_MS = 1000 * 60 * 60 * 24 * 7; // 7 días
+
+/**
+ * Huella corta de la contraseña vigente. Va dentro de la sesión: si se cambia
+ * TUTINA_ADMIN_PASSWORD, todas las sesiones abiertas dejan de valer.
+ */
+async function huellaContrasena(): Promise<string> {
+  const password = (process.env.TUTINA_ADMIN_PASSWORD || '').trim();
+  return (await hmacSha256Hex(`clave:${password}`, getSecret())).slice(0, 16);
+}
+
+export async function generarTokenSesionAdmin(
+  usuario: string,
+  ahora: number = Date.now()
+): Promise<string> {
+  const exp = ahora + DURACION_SESION_MS;
+  // El usuario no puede contener puntos (son el separador del token)
+  const nombre = usuario.toLowerCase().replace(/\./g, '_');
+  const payload = `${nombre}.${exp}.${await huellaContrasena()}`;
   const firma = await hmacSha256Hex(payload, getSecret());
   return `${payload}.${firma}`;
 }
@@ -35,22 +51,25 @@ export async function generarTokenSesionAdmin(usuario: string): Promise<string> 
 export async function verificarTokenSesionAdmin(token?: string | null): Promise<boolean> {
   if (!token) return false;
   const partes = token.split('.');
-  if (partes.length !== 3) return false;
+  if (partes.length !== 4) return false;
 
-  const [usuario, expStr, firmaRecibida] = partes;
+  const [usuario, expStr, huella, firmaRecibida] = partes;
   const exp = Number(expStr);
   if (!usuario || Number.isNaN(exp) || Date.now() > exp) {
     return false;
   }
 
-  const payload = `${usuario}.${expStr}`;
-  let firmaEsperada: string;
+  const payload = `${usuario}.${expStr}.${huella}`;
   try {
-    firmaEsperada = await hmacSha256Hex(payload, getSecret());
+    const [firmaEsperada, huellaActual] = await Promise.all([
+      hmacSha256Hex(payload, getSecret()),
+      huellaContrasena(),
+    ]);
+    // Firma válida y emitida con la contraseña vigente
+    return compararSeguro(firmaRecibida, firmaEsperada) && compararSeguro(huella, huellaActual);
   } catch {
     return false;
   }
-  return compararSeguro(firmaRecibida, firmaEsperada);
 }
 
 // Comparación en tiempo constante para no filtrar información por tiempos de respuesta
