@@ -559,3 +559,24 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 html.dark .ring-white {
   --tw-ring-color: var(--dk-superficie) !important;
 }
+
+/* ---------- Modo oscuro: clases que solo se aplican en celular (max-sm:) ---------- */
+/* La franja de categorías de la tienda usa un fondo semitransparente propio */
+html.dark .bg-slate-50\/95 {
+  background-color: rgba(9, 9, 11, 0.95) !important;
+}
+@media (max-width: 639px) {
+  html.dark .max-sm\:bg-white {
+    background-color: var(--dk-superficie) !important;
+  }
+  html.dark .max-sm\:border-slate-300,
+  html.dark .max-sm\:border-indigo-200,
+  html.dark .max-sm\:border-rose-200,
+  html.dark .max-sm\:border-emerald-300 {
+    border-color: var(--dk-borde-fuerte) !important;
+  }
+  /* Botones de color sólido en celular: el texto queda blanco aunque en escritorio sea un enlace de color */
+  html.dark .max-sm\:text-white {
+    color: #ffffff !important;
+  }
+}

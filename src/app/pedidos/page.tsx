@@ -324,7 +324,7 @@ function HistorialPedidosContent() {
           onClick={() => setFiltroEstado('TODOS')}
           className={`shrink-0 px-3 min-h-10 sm:min-h-0 py-1.5 rounded-xl text-sm sm:text-xs font-bold transition cursor-pointer ${
             filtroEstado === 'TODOS'
-              ? 'bg-slate-900 text-white'
+              ? 'bg-slate-900 text-white dark:ring-2 dark:ring-inset dark:ring-rose-500'
               : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
           }`}
         >
