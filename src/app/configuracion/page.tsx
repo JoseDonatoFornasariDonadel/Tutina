@@ -105,14 +105,20 @@ export default function ConfiguracionPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs">
+        <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
           Identidad Visual & Parámetros del Sistema
         </span>
-        <h1 className="text-2xl font-bold text-slate-900 mt-1">
-          Configuración Dinámica de &ldquo;{form.nombreComercial}&rdquo;
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 sm:mt-1">
+          <span className="sm:hidden">Configuración</span>
+          <span className="hidden sm:inline">
+            Configuración Dinámica de &ldquo;{form.nombreComercial}&rdquo;
+          </span>
         </h1>
-        <p className="text-sm text-slate-500">
+        <p className="sm:hidden text-xs text-slate-500 mt-0.5">
+          Logo, datos de la tienda, markup y alertas de WhatsApp.
+        </p>
+        <p className="hidden sm:block text-sm text-slate-500">
           Personaliza el <strong>logo dinámico de la página</strong>, los datos comerciales de
           Tutina, el número de WhatsApp para alertas de stock crítico y el markup global por
           defecto.
@@ -128,7 +134,7 @@ export default function ConfiguracionPage() {
 
       <form onSubmit={handleGuardarConfig} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Columna 1: Cambio Dinámico de Logo */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
             <ImageIcon className="w-5 h-5 text-rose-600" /> Logo Dinámico de la Página
           </h2>
@@ -272,10 +278,11 @@ export default function ConfiguracionPage() {
         </div>
 
         {/* Columna 2 y 3: Identidad Comercial, Parámetros de Markup y WhatsApp */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+        <div className="lg:col-span-2 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
-            <Sparkles className="w-5 h-5 text-indigo-600" /> Datos Comerciales, Reglas de Markup y
-            WhatsApp
+            <Sparkles className="w-5 h-5 text-indigo-600 shrink-0" />
+            <span className="sm:hidden">Datos, markup y WhatsApp</span>
+            <span className="hidden sm:inline">Datos Comerciales, Reglas de Markup y WhatsApp</span>
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -310,6 +317,9 @@ export default function ConfiguracionPage() {
               </label>
               <input
                 type="text"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 placeholder="https://www.instagram.com/tutina.indumentaria o @usuario"
                 value={form.instagramHandle}
                 onChange={(e) => setForm({ ...form, instagramHandle: e.target.value })}
@@ -338,7 +348,7 @@ export default function ConfiguracionPage() {
           </div>
 
           {/* Parámetros de Negocio: Markup Global y Alertas de WhatsApp */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="p-3 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-indigo-800 mb-1 flex items-center gap-1.5">
                 <Percent className="w-3.5 h-3.5" /> Markup Global por Defecto (%)
@@ -432,7 +442,9 @@ export default function ConfiguracionPage() {
                 <Phone className="w-3.5 h-3.5" /> Teléfono WhatsApp de la Dueña (Receptora)
               </label>
               <input
-                type="text"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
                 required
                 value={form.telefonoWhatsAppNotificaciones}
                 onChange={(e) =>
@@ -448,6 +460,10 @@ export default function ConfiguracionPage() {
               </label>
               <input
                 type="text"
+                inputMode="url"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 placeholder="https://api.whatsapp.com/..."
                 value={form.whatsappWebhookUrl}
                 onChange={(e) => setForm({ ...form, whatsappWebhookUrl: e.target.value })}
@@ -456,7 +472,7 @@ export default function ConfiguracionPage() {
             </div>
           </div>
 
-          <div className="flex justify-end pt-2">
+          <div className="hidden sm:flex justify-end pt-2">
             <button
               type="submit"
               disabled={guardando}
@@ -466,6 +482,18 @@ export default function ConfiguracionPage() {
               {guardando ? 'Guardando cambios...' : 'Guardar Configuración e Identidad'}
             </button>
           </div>
+        </div>
+
+        {/* Celular: el botón queda siempre a mano, encima de la barra inferior */}
+        <div className="sm:hidden sticky bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-20 -mx-1">
+          <button
+            type="submit"
+            disabled={guardando}
+            className="w-full min-h-12 inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 text-white text-sm font-bold shadow-lg active:bg-rose-700 disabled:opacity-60 cursor-pointer"
+          >
+            <Save className="w-4 h-4" />
+            {guardando ? 'Guardando…' : 'Guardar configuración'}
+          </button>
         </div>
       </form>
     </div>

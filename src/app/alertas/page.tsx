@@ -151,9 +151,9 @@ export default function AlertasWhatsAppPage() {
   return (
     <div className="space-y-6">
       {/* Encabezado Principal */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="hidden sm:flex flex-wrap items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
               Regla Crítica RN-04 • Stock &lt; {umbralGlobal} unidades
             </span>
@@ -162,40 +162,81 @@ export default function AlertasWhatsAppPage() {
               días
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 mt-1.5">
-            Centro de Alertas de Stock y Cobranzas Pendientes
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 sm:mt-1.5">
+            <span className="sm:hidden">Alertas</span>
+            <span className="hidden sm:inline">Centro de Alertas de Stock y Cobranzas Pendientes</span>
           </h1>
-          <p className="text-sm text-slate-500">
+          {/* Celular: resumen que lleva a cada sección */}
+          <div className="sm:hidden grid grid-cols-2 gap-2 mt-3">
+            <a
+              href="#alertas-cobros"
+              className={`min-h-14 px-3 py-2 rounded-xl border flex flex-col justify-center ${
+                pedidosPendientesVencidos.length > 0
+                  ? 'bg-rose-50 border-rose-200 text-rose-800'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              }`}
+            >
+              <span className="text-lg font-extrabold leading-tight">
+                {loading ? '…' : pedidosPendientesVencidos.length}
+              </span>
+              <span className="text-xs font-semibold">Cobros vencidos</span>
+            </a>
+            <a
+              href="#alertas-stock"
+              className={`min-h-14 px-3 py-2 rounded-xl border flex flex-col justify-center ${
+                variantesCriticas.length > 0
+                  ? 'bg-amber-50 border-amber-200 text-amber-800'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              }`}
+            >
+              <span className="text-lg font-extrabold leading-tight">
+                {loading ? '…' : variantesCriticas.length}
+              </span>
+              <span className="text-xs font-semibold">Con stock &lt; {umbralGlobal}</span>
+            </a>
+          </div>
+          <p className="hidden sm:block text-sm text-slate-500">
             Supervisa las variantes con stock crítico (&lt; {umbralGlobal} u.) y los pedidos en
             estado <strong>&ldquo;Entregado y pendiente de pago&rdquo;</strong> que llevan{' '}
             <strong>{umbralDiasPendientePago} días o más</strong> sin abonarse.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 shrink-0">
           <Link
             href="/pedidos"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition"
+            className="inline-flex items-center justify-center gap-2 px-4 min-h-11 sm:min-h-0 py-2.5 rounded-xl bg-rose-600 text-white text-sm sm:text-xs font-bold hover:bg-rose-700 transition"
           >
-            <Clock className="w-4 h-4" /> Gestionar Pedidos
+            <Clock className="w-4 h-4 shrink-0" />
+            <span className="sm:hidden">Pedidos</span>
+            <span className="hidden sm:inline">Gestionar Pedidos</span>
           </Link>
           <Link
             href="/proveedores"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition"
+            className="inline-flex items-center justify-center gap-2 px-4 min-h-11 sm:min-h-0 py-2.5 rounded-xl bg-slate-900 text-white text-sm sm:text-xs font-bold hover:bg-slate-800 transition"
           >
-            <Truck className="w-4 h-4" /> Cargar Factura de Reposición
+            <Truck className="w-4 h-4 shrink-0" />
+            <span className="sm:hidden">Reponer</span>
+            <span className="hidden sm:inline">Cargar Factura de Reposición</span>
           </Link>
         </div>
       </div>
 
       {/* NUEVO APARTADO: Alertas de Pedidos en "Entregado y pendiente de pago" >= 5 días */}
-      <div className="bg-white p-6 rounded-2xl border border-rose-200 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+      <div
+        id="alertas-cobros"
+        className="scroll-mt-20 bg-white p-4 sm:p-6 rounded-2xl border border-rose-200 shadow-xs space-y-4"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 sm:pb-4">
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-rose-600" /> Alertas de Pedidos &ldquo;Entregado y
-              pendiente de pago&rdquo; ({umbralDiasPendientePago} días o más)
+              <Clock className="w-5 h-5 text-rose-600 shrink-0" />
+              <span className="sm:hidden">Cobros vencidos ({umbralDiasPendientePago}+ días)</span>
+              <span className="hidden sm:inline">
+                Alertas de Pedidos &ldquo;Entregado y pendiente de pago&rdquo; (
+                {umbralDiasPendientePago} días o más)
+              </span>
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="hidden sm:block text-xs text-slate-500 mt-0.5">
               Se listan automáticamente los pedidos cuyas prendas ya fueron entregadas al cliente y
               acumulan {umbralDiasPendientePago} o más días corridos pendientes de pago.
             </p>
@@ -265,7 +306,7 @@ export default function AlertasWhatsAppPage() {
               return (
                 <div
                   key={pedido.nroPedido}
-                  className="p-4 rounded-xl border-2 border-rose-300 bg-rose-50/50 flex flex-col justify-between gap-3"
+                  className="p-3 sm:p-4 rounded-xl border-2 border-rose-300 bg-rose-50/50 flex flex-col justify-between gap-3"
                 >
                   <div className="space-y-2.5">
                     <div className="flex flex-wrap items-start justify-between gap-2">
@@ -351,46 +392,55 @@ export default function AlertasWhatsAppPage() {
                   </div>
 
                   {/* Botonera de Acción Rápida */}
-                  <div className="pt-2.5 border-t border-rose-200/80 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <div className="flex flex-wrap items-center gap-3">
+                  <div className="pt-2.5 border-t border-rose-200/80 flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-2 text-xs">
+                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3">
                       {telefonoClienteLimpio && (
                         <a
                           href={`https://wa.me/${telefonoClienteLimpio}?text=${mensajeClienteWsp}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-emerald-700 font-bold hover:underline"
+                          className="inline-flex items-center justify-center gap-1 max-sm:min-h-11 max-sm:px-2 max-sm:rounded-lg max-sm:border max-sm:border-emerald-300 max-sm:bg-white max-sm:text-sm text-emerald-700 font-bold hover:underline"
                         >
-                          <PhoneCall className="w-3.5 h-3.5" /> Recordar al Cliente{' '}
-                          <ExternalLink className="w-3 h-3" />
+                          <PhoneCall className="w-3.5 h-3.5 shrink-0" />
+                          <span className="sm:hidden">Al cliente</span>
+                          <span className="hidden sm:inline">Recordar al Cliente</span>{' '}
+                          <ExternalLink className="w-3 h-3 shrink-0" />
                         </a>
                       )}
                       <a
                         href={`https://wa.me/${telefonoDuenaLimpio}?text=${mensajeDuenaWsp}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-slate-600 font-semibold hover:text-slate-900 hover:underline"
+                        className="inline-flex items-center justify-center gap-1 max-sm:min-h-11 max-sm:px-2 max-sm:rounded-lg max-sm:border max-sm:border-slate-300 max-sm:bg-white max-sm:text-sm text-slate-600 font-semibold hover:text-slate-900 hover:underline"
                       >
-                        Notificar Dueña <ExternalLink className="w-3 h-3" />
+                        <span className="sm:hidden">A la dueña</span>
+                        <span className="hidden sm:inline">Notificar Dueña</span>{' '}
+                        <ExternalLink className="w-3 h-3 shrink-0" />
                       </a>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-2 sm:flex items-center gap-2">
                       {codEstadoPagado && (
                         <button
                           type="button"
                           disabled={procesandoPedidoId === pedido.nroPedido}
                           onClick={() => marcarPedidoComoPagado(pedido.nroPedido)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition cursor-pointer disabled:opacity-50"
+                          className="inline-flex items-center justify-center gap-1 px-3 min-h-11 sm:min-h-0 py-1.5 rounded-lg bg-emerald-600 text-white text-sm sm:text-xs font-bold hover:bg-emerald-700 transition cursor-pointer disabled:opacity-50"
                         >
-                          <Check className="w-3.5 h-3.5" />
-                          {procesandoPedidoId === pedido.nroPedido
-                            ? 'Actualizando...'
-                            : 'Marcar Pagado'}
+                          <Check className="w-3.5 h-3.5 shrink-0" />
+                          {procesandoPedidoId === pedido.nroPedido ? (
+                            'Actualizando...'
+                          ) : (
+                            <>
+                              <span className="sm:hidden">Pagado</span>
+                              <span className="hidden sm:inline">Marcar Pagado</span>
+                            </>
+                          )}
                         </button>
                       )}
                       <Link
                         href="/pedidos"
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 font-semibold hover:bg-slate-100 transition"
+                        className="inline-flex items-center justify-center gap-1 px-2.5 min-h-11 sm:min-h-0 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm sm:text-xs font-semibold hover:bg-slate-100 transition"
                       >
                         Ver Pedido <ArrowRight className="w-3 h-3" />
                       </Link>
@@ -425,10 +475,16 @@ export default function AlertasWhatsAppPage() {
       </div>
 
       {/* Estado Actual de Variantes con Stock < 3 */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+      <div
+        id="alertas-stock"
+        className="scroll-mt-20 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4"
+      >
         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-          <AlertTriangle className="w-5 h-5 text-amber-500" /> Variantes Actualmente en Nivel
-          Crítico (Stock &lt; {umbralGlobal})
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+          <span className="sm:hidden">Stock bajo (menos de {umbralGlobal} u.)</span>
+          <span className="hidden sm:inline">
+            Variantes Actualmente en Nivel Crítico (Stock &lt; {umbralGlobal})
+          </span>
         </h2>
 
         {loading ? (
@@ -449,7 +505,7 @@ export default function AlertasWhatsAppPage() {
               return (
                 <div
                   key={v.codVariante}
-                  className="p-4 rounded-xl border border-amber-300 bg-amber-50/60 flex flex-col justify-between gap-3"
+                  className="p-3 sm:p-4 rounded-xl border border-amber-300 bg-amber-50/60 flex flex-col justify-between gap-3"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -473,21 +529,28 @@ export default function AlertasWhatsAppPage() {
                     </span>
                   </div>
 
-                  <div className="pt-2 border-t border-amber-200/80 flex items-center justify-between text-xs">
+                  <div className="pt-2 border-t border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                     <span className="inline-flex items-center gap-1 font-semibold text-emerald-800">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      {v.alertaStockEnviada
-                        ? 'Aviso WhatsApp ya disparado (Anti-Spam activo)'
-                        : 'Pendiente de disparo'}
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span className="sm:hidden">
+                        {v.alertaStockEnviada ? 'Aviso ya enviado' : 'Aviso pendiente'}
+                      </span>
+                      <span className="hidden sm:inline">
+                        {v.alertaStockEnviada
+                          ? 'Aviso WhatsApp ya disparado (Anti-Spam activo)'
+                          : 'Pendiente de disparo'}
+                      </span>
                     </span>
                     <a
                       href={`https://wa.me/${telefonoLimpio}?text=${textoWsp}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-emerald-700 font-bold hover:underline"
+                      className="inline-flex items-center justify-center gap-1 max-sm:min-h-11 max-sm:rounded-lg max-sm:bg-emerald-600 max-sm:text-white max-sm:text-sm text-emerald-700 font-bold hover:underline"
                     >
-                      <PhoneCall className="w-3.5 h-3.5" /> Abrir en WhatsApp Web{' '}
-                      <ExternalLink className="w-3 h-3" />
+                      <PhoneCall className="w-3.5 h-3.5 shrink-0" />
+                      <span className="sm:hidden">Avisar por WhatsApp</span>
+                      <span className="hidden sm:inline">Abrir en WhatsApp Web</span>{' '}
+                      <ExternalLink className="w-3 h-3 shrink-0" />
                     </a>
                   </div>
                 </div>
@@ -498,20 +561,23 @@ export default function AlertasWhatsAppPage() {
       </div>
 
       {/* Historial de Mensajes Disparados por el Sistema */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-          <MessageSquareWarning className="w-5 h-5 text-emerald-600" /> Registro de Auditoría de
-          Mensajes WhatsApp Enviados a la Dueña
+          <MessageSquareWarning className="w-5 h-5 text-emerald-600 shrink-0" />
+          <span className="sm:hidden">Mensajes enviados</span>
+          <span className="hidden sm:inline">
+            Registro de Auditoría de Mensajes WhatsApp Enviados a la Dueña
+          </span>
         </h2>
 
         <div className="space-y-3">
           {alertasLog.map((log) => (
             <div
               key={log.idAlerta}
-              className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2 text-xs"
+              className="p-3 sm:p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2 text-xs"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold">
                     {log.estadoEnvio}
                   </span>
@@ -526,7 +592,7 @@ export default function AlertasWhatsAppPage() {
                   Origen: {log.origenDisparo} (Stock remanente: {log.stockRemanente} u.)
                 </span>
               </div>
-              <div className="p-3 rounded-lg bg-white border border-slate-200 text-slate-800 font-medium">
+              <div className="p-2.5 sm:p-3 rounded-lg bg-white border border-slate-200 text-slate-800 font-medium">
                 {log.mensajeEnviado}
               </div>
             </div>
