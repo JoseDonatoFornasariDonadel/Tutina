@@ -595,6 +595,7 @@ export default function CatalogoPage() {
   const renderSelectoresFiltro = () => (
     <>
         <select
+          aria-label="Filtrar por categoría"
           value={filtroCategoria}
           onChange={(e) => {
             setFiltroCategoria(e.target.value);
@@ -611,6 +612,7 @@ export default function CatalogoPage() {
         </select>
 
         <select
+          aria-label="Filtrar por marca"
           value={filtroMarca}
           onChange={(e) => {
             setFiltroMarca(e.target.value);
@@ -627,6 +629,7 @@ export default function CatalogoPage() {
         </select>
 
         <select
+          aria-label="Filtrar por temporada"
           value={filtroTemporada}
           onChange={(e) => {
             setFiltroTemporada(e.target.value);
@@ -646,6 +649,7 @@ export default function CatalogoPage() {
         <div className="relative">
           <ArrowUpDown className="w-3.5 h-3.5 text-rose-600 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <select
+            aria-label="Ordenar por antigüedad"
             value={ordenAntiguedad}
             onChange={(e) => {
               setOrdenAntiguedad(e.target.value as 'MAS_RECIENTES' | 'MAS_ANTIGUAS');
@@ -751,7 +755,7 @@ export default function CatalogoPage() {
               <label className="block text-xs font-bold text-rose-900 mb-1">
                 Nombre de la Nueva Marca *
               </label>
-              <input
+              <input aria-label="Nombre de la Nueva Marca"
                 type="text"
                 required
                 placeholder="Ej: Nike Women, Adidas Training, Cocot Sport, Línea Propia..."
@@ -982,9 +986,9 @@ export default function CatalogoPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-bold text-slate-900 text-[15px] leading-snug line-clamp-2">
+                      <h2 className="font-bold text-slate-900 text-[15px] leading-snug line-clamp-2">
                         {prod.nombre}
-                      </h3>
+                      </h2>
                       <Edit3 className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" aria-hidden="true" />
                     </div>
                     <p className="text-xs text-slate-500 truncate mt-0.5">
@@ -1057,9 +1061,9 @@ export default function CatalogoPage() {
                 <div className="p-3 sm:p-5 flex-1 flex flex-col justify-between space-y-3 sm:space-y-4">
                   <div className="hidden sm:block">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-bold text-slate-900 text-base group-hover:text-rose-600 transition">
+                      <h2 className="font-bold text-slate-900 text-base group-hover:text-rose-600 transition">
                         {prod.nombre}
-                      </h3>
+                      </h2>
                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 shrink-0 bg-rose-50 px-2 py-1 rounded-lg">
                         <Edit3 className="w-3.5 h-3.5" /> Editar
                       </span>
@@ -1241,7 +1245,7 @@ export default function CatalogoPage() {
       {/* =========================================================================== */}
       {productoEditando && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-start sm:items-center justify-center sm:p-4 overflow-y-auto scroll-touch">
-          <div className="bg-white sm:rounded-2xl max-w-4xl w-full min-h-dvh sm:min-h-0 border-slate-200 sm:border shadow-2xl sm:overflow-hidden sm:my-8">
+          <div role="dialog" aria-modal="true" aria-label={`Editar ${productoEditando.nombre}`} className="bg-white sm:rounded-2xl max-w-4xl w-full min-h-dvh sm:min-h-0 border-slate-200 sm:border shadow-2xl sm:overflow-hidden sm:my-8">
             <div className="sticky top-0 z-20 sm:static bg-slate-900 text-white pt-safe">
               <div className="px-4 sm:px-6 py-2 sm:py-4 min-h-14 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -1351,7 +1355,7 @@ export default function CatalogoPage() {
                     <label className="block text-xs font-bold text-slate-600 mb-1">
                       1. Precio de Costo ($)
                     </label>
-                    <input
+                    <input aria-label="1. Precio de Costo ($)"
                       type="number"
                 inputMode="decimal"
                       min={0}
@@ -1369,7 +1373,7 @@ export default function CatalogoPage() {
                     <label className="block text-xs font-bold text-indigo-700 mb-1">
                       2. Margen Markup (%)
                     </label>
-                    <input
+                    <input aria-label="2. Margen Markup (%)"
                       type="number"
                 inputMode="decimal"
                       step="0.5"
@@ -1384,7 +1388,7 @@ export default function CatalogoPage() {
                     <label className="block text-xs font-bold text-indigo-700 mb-1">
                       Coeficiente (Ej. 2.30x)
                     </label>
-                    <input
+                    <input aria-label="Coeficiente (Ej. 2.30x)"
                       type="number"
                 inputMode="decimal"
                       step="0.05"
@@ -1402,7 +1406,7 @@ export default function CatalogoPage() {
                     <label className="block text-xs font-bold text-emerald-800 mb-1">
                       3. Precio Venta Lista ($)
                     </label>
-                    <input
+                    <input aria-label="3. Precio Venta Lista ($)"
                       type="number"
                 inputMode="decimal"
                       min={0}
@@ -1467,7 +1471,7 @@ export default function CatalogoPage() {
                       <label className="block text-[10px] font-bold uppercase text-rose-900 mb-1">
                         Nombre de la Promo *
                       </label>
-                      <input
+                      <input aria-label="Nombre de la Promo"
                         type="text"
                         placeholder="Ej: Promo Invierno / Liquidación"
                         value={nuevoDescRapido.nombreDesc}
@@ -1481,7 +1485,7 @@ export default function CatalogoPage() {
                       <label className="block text-[10px] font-bold uppercase text-rose-900 mb-1">
                         % Descuento *
                       </label>
-                      <input
+                      <input aria-label="% Descuento"
                         type="number"
                 inputMode="decimal"
                         min={1}
@@ -1500,7 +1504,7 @@ export default function CatalogoPage() {
                       <label className="block text-[10px] font-bold uppercase text-rose-900 mb-1">
                         Desde
                       </label>
-                      <input
+                      <input aria-label="Desde"
                         type="date"
                         value={nuevoDescRapido.fechaInicioDesc}
                         onChange={(e) =>
@@ -1516,7 +1520,7 @@ export default function CatalogoPage() {
                       <label className="block text-[10px] font-bold uppercase text-rose-900 mb-1">
                         Hasta
                       </label>
-                      <input
+                      <input aria-label="Hasta"
                         type="date"
                         value={nuevoDescRapido.fechaFinDesc}
                         onChange={(e) =>
@@ -1539,6 +1543,7 @@ export default function CatalogoPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
                   <select
+                    aria-label="Descuento promocional de la prenda"
                     value={productoEditando.codDescuento || ''}
                     onChange={(e) => handleSeleccionarDescuentoEdicion(e.target.value)}
                     className="w-full px-3 py-2.5 text-sm font-medium rounded-xl border border-slate-300 bg-white"
@@ -1583,7 +1588,7 @@ export default function CatalogoPage() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Nombre de la Prenda
                   </label>
-                  <input
+                  <input aria-label="Nombre de la Prenda"
                     type="text"
                     required
                     value={productoEditando.nombre}
@@ -1605,7 +1610,7 @@ export default function CatalogoPage() {
                       + Nueva Marca
                     </button>
                   </div>
-                  <select
+                  <select aria-label="Marca"
                     value={productoEditando.codMarca}
                     onChange={(e) =>
                       setProductoEditando({
@@ -1666,7 +1671,7 @@ export default function CatalogoPage() {
                       + Nuevo Proveedor
                     </button>
                   </div>
-                  <select
+                  <select aria-label="Proveedor Habitual"
                     value={productoEditando.codProveedorHabitual || ''}
                     onChange={(e) =>
                       setProductoEditando({
@@ -1711,7 +1716,7 @@ export default function CatalogoPage() {
                     <label className="block text-[11px] font-bold text-rose-900 mb-1">
                       Registrar Proveedor que no está en el sistema *
                     </label>
-                    <input
+                    <input aria-label="Registrar Proveedor que no está en el sistema"
                       type="text"
                       placeholder="Nombre / Razón Social del Proveedor"
                       value={nuevoProvRapido.nombreProveedor}
@@ -1725,7 +1730,7 @@ export default function CatalogoPage() {
                     <label className="block text-[11px] font-bold text-rose-900 mb-1">
                       Teléfono WhatsApp *
                     </label>
-                    <input
+                    <input aria-label="Teléfono WhatsApp"
                       type="text"
                       placeholder="+54911..."
                       value={nuevoProvRapido.numeroProveedor}
@@ -1791,7 +1796,7 @@ export default function CatalogoPage() {
                         <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
                           Talle
                         </label>
-                        <select
+                        <select aria-label="Talle"
                           value={v.codTalle ?? v.talle?.codTalle}
                           onChange={(e) => {
                             const codT = Number(e.target.value);
@@ -1836,7 +1841,7 @@ export default function CatalogoPage() {
                         <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
                           Stock
                         </label>
-                        <input
+                        <input aria-label="Stock"
                           type="number"
                 inputMode="numeric"
                           min={0}

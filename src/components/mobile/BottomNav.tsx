@@ -93,6 +93,7 @@ export function BottomNav({ onAbrirMas, alertas = 0 }: BottomNavProps) {
         <button
           type="button"
           onClick={onAbrirMas}
+          aria-label={alertas > 0 ? `Más opciones, ${alertas} alertas` : 'Más opciones'}
           className="relative flex-1 min-h-14 flex flex-col items-center justify-center gap-1 text-[11px] font-bold text-slate-500 active:text-slate-900 cursor-pointer"
         >
           <span className="relative flex h-7 w-12 items-center justify-center">

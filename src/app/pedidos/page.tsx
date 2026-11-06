@@ -490,6 +490,7 @@ function HistorialPedidosContent() {
                     <div className="col-span-2 flex items-center gap-1.5">
                       <span className="text-xs font-semibold text-slate-500">Estado:</span>
                       <select
+                        aria-label={`Estado del pedido ${ped.nroPedido}`}
                         disabled={cambiandoId === ped.nroPedido}
                         value={ped.codEstadoActual}
                         onChange={(e) =>
@@ -541,7 +542,7 @@ function HistorialPedidosContent() {
                   >
                     <span
                       className={`text-[11px] sm:text-xs font-bold uppercase ${
-                        totalAPagar > 0 && !estaDevuelto ? 'text-rose-800' : 'text-slate-500'
+                        totalAPagar > 0 && !estaDevuelto ? 'text-rose-800' : 'text-slate-600'
                       }`}
                     >
                       <span className="sm:hidden">Saldo</span>
@@ -549,7 +550,7 @@ function HistorialPedidosContent() {
                     </span>
                     <span
                       className={`text-sm sm:text-base font-extrabold ${
-                        totalAPagar > 0 && !estaDevuelto ? 'text-rose-600' : 'text-slate-600'
+                        totalAPagar > 0 && !estaDevuelto ? 'text-rose-700' : 'text-slate-600'
                       }`}
                     >
                       ${(estaDevuelto ? 0 : totalAPagar).toLocaleString('es-AR')}
@@ -606,7 +607,7 @@ function HistorialPedidosContent() {
                         <label className="block text-[11px] font-bold text-slate-700 mb-1">
                           Monto Entregado ($) *
                         </label>
-                        <input
+                        <input aria-label="Monto Entregado ($)"
                           type="number"
                 inputMode="decimal"
                           required
@@ -624,7 +625,7 @@ function HistorialPedidosContent() {
                         <label className="block text-[11px] font-bold text-slate-700 mb-1">
                           Medio de Pago
                         </label>
-                        <select
+                        <select aria-label="Medio de Pago"
                           value={codFPSeleccionada}
                           onChange={(e) => setCodFPSeleccionada(Number(e.target.value))}
                           className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 bg-white"
@@ -641,7 +642,7 @@ function HistorialPedidosContent() {
                         <label className="block text-[11px] font-bold text-slate-700 mb-1">
                           Nota / Detalle de la Entrega (Opcional)
                         </label>
-                        <input
+                        <input aria-label="Nota / Detalle de la Entrega (Opcional)"
                           type="text"
                           value={notaEntregaInput}
                           onChange={(e) => setNotaEntregaInput(e.target.value)}

@@ -75,7 +75,7 @@ function LoginFormContent() {
             </label>
             <div className="relative">
               <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
+              <input aria-label="Usuario Administrador"
                 type="text"
                 required
                 value={usuario}
@@ -92,7 +92,7 @@ function LoginFormContent() {
             </label>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
+              <input aria-label="Contraseña de Gestión"
                 type={mostrarPassword ? 'text' : 'password'}
                 required
                 value={password}

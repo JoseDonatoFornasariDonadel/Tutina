@@ -87,6 +87,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setMenuMovilAbierto(false);
   }, [pathname]);
 
+  // Escape cierra el menú lateral del celular
+  useEffect(() => {
+    if (!menuMovilAbierto) return;
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuMovilAbierto(false);
+    };
+    window.addEventListener('keydown', alTeclear);
+    return () => window.removeEventListener('keydown', alTeclear);
+  }, [menuMovilAbierto]);
+
   useEffect(() => {
     const savedTheme = localStorage.getItem('tutina_dark_mode');
     if (savedTheme === 'true') {
@@ -325,7 +335,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <div className="text-sm font-semibold leading-tight">{item.label}</div>
                   <div
                     className={`text-[11px] truncate ${
-                      isActive ? 'text-rose-100' : 'text-slate-400'
+                      isActive ? 'text-white' : 'text-slate-400'
                     }`}
                   >
                     {item.desc}
@@ -455,12 +465,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() => setMenuMovilAbierto(false)}
             className="fixed inset-0 z-50 lg:hidden bg-slate-900/60 backdrop-blur-xs flex"
           >
-            <aside
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Menú de gestión"
               onClick={(e) => e.stopPropagation()}
               className="w-80 max-w-[85vw] bg-white h-full border-r border-slate-200 flex flex-col shadow-2xl overflow-hidden pt-safe pb-safe"
             >
               {renderContenidoSidebar(true)}
-            </aside>
+            </div>
           </div>
         )}
 

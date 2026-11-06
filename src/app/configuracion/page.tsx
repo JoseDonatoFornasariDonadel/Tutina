@@ -162,7 +162,7 @@ export default function ConfiguracionPage() {
                   className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold cursor-pointer transition ${
                     activo
                       ? 'bg-white text-rose-700 border border-rose-200 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800 border border-transparent'
+                      : 'text-slate-600 hover:text-slate-800 border border-transparent'
                   }`}
                 >
                   <Icono className="w-3.5 h-3.5" /> {etiqueta}
@@ -181,7 +181,7 @@ export default function ConfiguracionPage() {
           >
             <span
               className={`text-[10px] font-bold uppercase tracking-wider ${
-                modoLogo === 'claro' ? 'text-[#94a3b8]' : 'text-[#8b8b94]'
+                modoLogo === 'claro' ? 'text-[#64748b]' : 'text-[#8b8b94]'
               }`}
             >
               Vista previa • {modoLogo === 'claro' ? 'Modo Claro' : 'Modo Oscuro'}
@@ -253,7 +253,7 @@ export default function ConfiguracionPage() {
             <label className="block text-xs font-semibold text-slate-700 mb-1">
               O URL directa de imagen del logo ({modoLogo === 'claro' ? 'modo claro' : 'modo oscuro'}):
             </label>
-            <input
+            <input aria-label="O URL directa de imagen del logo"
               type="text"
               value={valorLogoActivo}
               placeholder={
@@ -290,7 +290,7 @@ export default function ConfiguracionPage() {
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Nombre Comercial de la Tienda
               </label>
-              <input
+              <input aria-label="Nombre Comercial de la Tienda"
                 type="text"
                 required
                 value={form.nombreComercial}
@@ -303,7 +303,7 @@ export default function ConfiguracionPage() {
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Slogan / Subtítulo de Vidriera
               </label>
-              <input
+              <input aria-label="Slogan / Subtítulo de Vidriera"
                 type="text"
                 value={form.slogan}
                 onChange={(e) => setForm({ ...form, slogan: e.target.value })}
@@ -315,7 +315,7 @@ export default function ConfiguracionPage() {
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Link o Usuario de Instagram (Redirecciona en la Tienda)
               </label>
-              <input
+              <input aria-label="Link o Usuario de Instagram (Redirecciona en la Tienda)"
                 type="text"
                 autoCapitalize="none"
                 autoCorrect="off"
@@ -334,7 +334,7 @@ export default function ConfiguracionPage() {
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Dirección Comercial / Link de Google Maps
               </label>
-              <input
+              <input aria-label="Dirección Comercial / Link de Google Maps"
                 type="text"
                 placeholder="Ej: Av. Hipólito Yrigoyen 450, Córdoba o link de Google Maps"
                 value={form.direccionComercial}
@@ -353,7 +353,7 @@ export default function ConfiguracionPage() {
               <label className="block text-xs font-bold text-indigo-800 mb-1 flex items-center gap-1.5">
                 <Percent className="w-3.5 h-3.5" /> Markup Global por Defecto (%)
               </label>
-              <input
+              <input aria-label="Markup Global por Defecto (%)"
                 type="number"
                 inputMode="numeric"
                 step="1"
@@ -372,7 +372,7 @@ export default function ConfiguracionPage() {
               <label className="block text-xs font-bold text-amber-800 mb-1 flex items-center gap-1.5">
                 <BellRing className="w-3.5 h-3.5" /> Umbral de Alerta de Stock Crítico (Unidades)
               </label>
-              <input
+              <input aria-label="Umbral de Alerta de Stock Crítico (Unidades)"
                 type="number"
                 inputMode="numeric"
                 min={1}
@@ -392,7 +392,7 @@ export default function ConfiguracionPage() {
                 <Clock className="w-3.5 h-3.5" /> Días de tolerancia de cobro (Entregado y pendiente
                 de pago)
               </label>
-              <input
+              <input aria-label="Días de tolerancia de cobro (Entregado y pendiente de pago)"
                 type="number"
                 inputMode="numeric"
                 min={0}
@@ -415,7 +415,7 @@ export default function ConfiguracionPage() {
               <label className="block text-xs font-bold text-rose-800 mb-1 flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5" /> Contar los días de cobro desde
               </label>
-              <select
+              <select aria-label="Contar los días de cobro desde"
                 value={form.alertaPagoContarDesde}
                 onChange={(e) =>
                   setForm({
@@ -441,7 +441,7 @@ export default function ConfiguracionPage() {
               <label className="block text-xs font-bold text-emerald-800 mb-1 flex items-center gap-1.5">
                 <Phone className="w-3.5 h-3.5" /> Teléfono WhatsApp de la Dueña (Receptora)
               </label>
-              <input
+              <input aria-label="Teléfono WhatsApp de la Dueña (Receptora)"
                 type="tel"
                 inputMode="tel"
                 autoComplete="tel"
@@ -458,7 +458,7 @@ export default function ConfiguracionPage() {
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Webhook URL WhatsApp API (Opcional: Meta Cloud / Evolution / n8n)
               </label>
-              <input
+              <input aria-label="Webhook URL WhatsApp API (Opcional: Meta Cloud / Evolution / n8n)"
                 type="text"
                 inputMode="url"
                 autoCapitalize="none"

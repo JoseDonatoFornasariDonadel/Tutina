@@ -614,7 +614,7 @@ export function NuevaPrendaModal({
       ref={contenedorRef}
       className={`fixed inset-0 ${zIndexClass} bg-slate-900/60 backdrop-blur-xs flex items-start sm:items-center justify-center sm:p-4 overflow-y-auto scroll-touch`}
     >
-      <div className="bg-white sm:rounded-2xl max-w-3xl w-full min-h-dvh sm:min-h-0 border-slate-200 sm:border shadow-2xl sm:overflow-hidden sm:my-8 flex flex-col">
+      <div role="dialog" aria-modal="true" aria-label="Nueva prenda" className="bg-white sm:rounded-2xl max-w-3xl w-full min-h-dvh sm:min-h-0 border-slate-200 sm:border shadow-2xl sm:overflow-hidden sm:my-8 flex flex-col">
         <div className="sticky top-0 z-10 sm:static px-4 sm:px-6 pt-safe bg-slate-900 text-white">
           <div className="min-h-14 py-2 sm:py-4 flex items-center justify-between gap-3">
             <h2 className="text-base font-bold flex items-center gap-2 min-w-0">
@@ -647,7 +647,7 @@ export function NuevaPrendaModal({
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Nombre de la Indumentaria *
               </label>
-              <input
+              <input aria-label="Nombre de la Indumentaria"
                 type="text"
                 required
                 placeholder="Ej: Calza Deportiva Seamless Texturada"
@@ -661,7 +661,7 @@ export function NuevaPrendaModal({
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Descripción de la Prenda
               </label>
-              <input
+              <input aria-label="Descripción de la Prenda"
                 type="text"
                 placeholder="Ej: Tejido elastizado tiro alto..."
                 value={nuevoProdForm.descripcion}
@@ -705,7 +705,7 @@ export function NuevaPrendaModal({
                   <BookmarkPlus className="w-3 h-3" /> + Nueva Marca
                 </button>
               </div>
-              <select
+              <select aria-label="Marca"
                 value={nuevoProdForm.codMarca}
                 onChange={(e) =>
                   setNuevoProdForm({ ...nuevoProdForm, codMarca: Number(e.target.value) })
@@ -741,7 +741,7 @@ export function NuevaPrendaModal({
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Temporada</label>
-              <select
+              <select aria-label="Temporada"
                 value={nuevoProdForm.codTemporada}
                 onChange={(e) =>
                   setNuevoProdForm({ ...nuevoProdForm, codTemporada: Number(e.target.value) })
@@ -767,7 +767,7 @@ export function NuevaPrendaModal({
                   <Building2 className="w-3 h-3" /> + Nuevo Proveedor
                 </button>
               </div>
-              <select
+              <select aria-label="Proveedor Habitual"
                 value={nuevoProdForm.codProveedorHabitual}
                 onChange={(e) =>
                   setNuevoProdForm({ ...nuevoProdForm, codProveedorHabitual: e.target.value })
@@ -821,7 +821,7 @@ export function NuevaPrendaModal({
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Precio Costo ($)
               </label>
-              <input
+              <input aria-label="Precio Costo ($)"
                 type="number"
                 inputMode="decimal"
                 required
@@ -842,7 +842,7 @@ export function NuevaPrendaModal({
               <label className="block text-xs font-semibold text-indigo-700 mb-1">
                 Markup (%)
               </label>
-              <input
+              <input aria-label="Markup (%)"
                 type="number"
                 inputMode="decimal"
                 required
@@ -904,7 +904,7 @@ export function NuevaPrendaModal({
                   <label className="block text-[10px] font-bold uppercase text-rose-900 mb-1">
                     Nombre del Descuento *
                   </label>
-                  <input
+                  <input aria-label="Nombre del Descuento"
                     type="text"
                     placeholder="Ej: Promo Lanzamiento"
                     value={nuevoDescRapido.nombreDesc}
@@ -918,7 +918,7 @@ export function NuevaPrendaModal({
                   <label className="block text-[10px] font-bold uppercase text-rose-900 mb-1">
                     % OFF *
                   </label>
-                  <input
+                  <input aria-label="% OFF"
                     type="number"
                 inputMode="decimal"
                     min={1}
@@ -937,7 +937,7 @@ export function NuevaPrendaModal({
                   <label className="block text-[10px] font-bold uppercase text-rose-900 mb-1">
                     Desde
                   </label>
-                  <input
+                  <input aria-label="Desde"
                     type="date"
                     value={nuevoDescRapido.fechaInicioDesc}
                     onChange={(e) =>
@@ -953,7 +953,7 @@ export function NuevaPrendaModal({
                   <label className="block text-[10px] font-bold uppercase text-rose-900 mb-1">
                     Hasta
                   </label>
-                  <input
+                  <input aria-label="Hasta"
                     type="date"
                     value={nuevoDescRapido.fechaFinDesc}
                     onChange={(e) =>
@@ -1077,7 +1077,7 @@ export function NuevaPrendaModal({
                       <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
                         Talle
                       </label>
-                      <select
+                      <select aria-label="Talle"
                         value={item.codTalle}
                         onChange={(e) => {
                           const copia = [...listaVariantesNuevas];
