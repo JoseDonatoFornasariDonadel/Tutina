@@ -176,16 +176,19 @@ export default function ReportesFinancierosPage() {
   return (
     <div className="space-y-6">
       {/* Encabezado y Selector de Nivel de Reporte (General del Negocio vs. Por Prenda) */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 sm:space-y-5">
+        <div className="flex flex-row items-center justify-between gap-3 sm:gap-4">
+          <div className="min-w-0">
+            <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
               Inteligencia Financiera & Rentabilidad
             </span>
-            <h1 className="text-2xl font-bold text-slate-900 mt-1">
-              Reportes Financieros: Margen de Contribución y Utilidad Neta
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 sm:mt-1">
+              <span className="sm:hidden">Reportes</span>
+              <span className="hidden sm:inline">
+                Reportes Financieros: Margen de Contribución y Utilidad Neta
+              </span>
             </h1>
-            <p className="text-sm text-slate-500">
+            <p className="hidden sm:block text-sm text-slate-500">
               Selecciona si deseas analizar el <strong>rendimiento general de todo el negocio</strong>{' '}
               o el <strong>rendimiento histórico por cada prenda</strong>.
             </p>
@@ -194,18 +197,20 @@ export default function ReportesFinancierosPage() {
           <button
             type="button"
             onClick={() => setMostrarFormGasto(!mostrarFormGasto)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-rose-600 transition cursor-pointer shrink-0 self-start lg:self-auto"
+            className="inline-flex items-center gap-2 px-4 min-h-11 sm:min-h-0 py-2.5 rounded-xl bg-slate-900 text-white text-sm sm:text-xs font-bold hover:bg-rose-600 transition cursor-pointer shrink-0"
           >
-            <Plus className="w-4 h-4" /> Imputar Gasto Operativo
+            <Plus className="w-4 h-4" />
+            <span className="sm:hidden">Gasto</span>
+            <span className="hidden sm:inline">Imputar Gasto Operativo</span>
           </button>
         </div>
 
         {/* Selector Principal de Nivel de Reporte */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-3 sm:pt-2 border-t border-slate-100">
           <button
             type="button"
             onClick={() => setModoReporte('GENERAL_NEGOCIO')}
-            className={`p-3.5 rounded-xl border text-left transition cursor-pointer flex items-center gap-3 ${
+            className={`p-2 sm:p-3.5 min-h-14 sm:min-h-0 rounded-xl border text-center sm:text-left transition cursor-pointer flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-3 ${
               modoReporte === 'GENERAL_NEGOCIO'
                 ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
                 : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -217,11 +222,12 @@ export default function ReportesFinancierosPage() {
               }`}
             />
             <div>
-              <div className="text-xs font-extrabold uppercase tracking-wider">
-                1. General de Todo el Negocio
+              <div className="text-xs font-extrabold sm:uppercase sm:tracking-wider">
+                <span className="sm:hidden">Negocio</span>
+                <span className="hidden sm:inline">1. General de Todo el Negocio</span>
               </div>
               <div
-                className={`text-[11px] ${
+                className={`hidden sm:block text-[11px] ${
                   modoReporte === 'GENERAL_NEGOCIO' ? 'text-rose-100' : 'text-slate-500'
                 }`}
               >
@@ -233,7 +239,7 @@ export default function ReportesFinancierosPage() {
           <button
             type="button"
             onClick={() => setModoReporte('POR_PRENDA')}
-            className={`p-3.5 rounded-xl border text-left transition cursor-pointer flex items-center gap-3 ${
+            className={`p-2 sm:p-3.5 min-h-14 sm:min-h-0 rounded-xl border text-center sm:text-left transition cursor-pointer flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-3 ${
               modoReporte === 'POR_PRENDA'
                 ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
                 : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -245,11 +251,12 @@ export default function ReportesFinancierosPage() {
               }`}
             />
             <div>
-              <div className="text-xs font-extrabold uppercase tracking-wider">
-                2. Rendimiento por Prenda
+              <div className="text-xs font-extrabold sm:uppercase sm:tracking-wider">
+                <span className="sm:hidden">Por prenda</span>
+                <span className="hidden sm:inline">2. Rendimiento por Prenda</span>
               </div>
               <div
-                className={`text-[11px] ${
+                className={`hidden sm:block text-[11px] ${
                   modoReporte === 'POR_PRENDA' ? 'text-rose-100' : 'text-slate-500'
                 }`}
               >
@@ -261,7 +268,7 @@ export default function ReportesFinancierosPage() {
           <button
             type="button"
             onClick={() => setModoReporte('AMBOS')}
-            className={`p-3.5 rounded-xl border text-left transition cursor-pointer flex items-center gap-3 ${
+            className={`p-2 sm:p-3.5 min-h-14 sm:min-h-0 rounded-xl border text-center sm:text-left transition cursor-pointer flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-3 ${
               modoReporte === 'AMBOS'
                 ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
                 : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -273,11 +280,12 @@ export default function ReportesFinancierosPage() {
               }`}
             />
             <div>
-              <div className="text-xs font-extrabold uppercase tracking-wider">
-                3. Ver Ambos Reportes Juntos
+              <div className="text-xs font-extrabold sm:uppercase sm:tracking-wider">
+                <span className="sm:hidden">Ambos</span>
+                <span className="hidden sm:inline">3. Ver Ambos Reportes Juntos</span>
               </div>
               <div
-                className={`text-[11px] ${
+                className={`hidden sm:block text-[11px] ${
                   modoReporte === 'AMBOS' ? 'text-rose-100' : 'text-slate-500'
                 }`}
               >
@@ -358,73 +366,85 @@ export default function ReportesFinancierosPage() {
       {(modoReporte === 'GENERAL_NEGOCIO' || modoReporte === 'AMBOS') && (
         <div className="space-y-6">
           {/* Tarjetas de KPIs Financieros Globales */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-              <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-400">
-                <span>Facturación Neta Global</span>
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
+            <div className="bg-white p-3 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+              <div className="flex items-start sm:items-center justify-between gap-1 text-[11px] sm:text-xs font-bold uppercase text-slate-400">
+                <span><span className="sm:hidden">Facturación</span><span className="hidden sm:inline">Facturación Neta Global</span></span>
                 <DollarSign className="w-4 h-4 text-slate-500" />
               </div>
-              <div className="text-2xl font-extrabold text-slate-900">
+              <div className="text-lg sm:text-2xl font-extrabold text-slate-900">
                 ${kpis.facturacionNetaTotal.toLocaleString('es-AR')}
               </div>
               <p className="text-[11px] text-slate-500">
-                {kpis.cantidadPedidos} pedidos • {kpis.unidadesVendidasTotal} prendas • Markup
-                efectivo prom: +{markupPromedioGlobal}%
+                {kpis.cantidadPedidos} pedidos
+                <span className="hidden sm:inline">
+                  {' '}• {kpis.unidadesVendidasTotal} prendas • Markup efectivo prom: +
+                  {markupPromedioGlobal}%
+                </span>
               </p>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-              <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-400">
-                <span>Costos Variables (CMV + Pasarela)</span>
+            <div className="bg-white p-3 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+              <div className="flex items-start sm:items-center justify-between gap-1 text-[11px] sm:text-xs font-bold uppercase text-slate-400">
+                <span><span className="sm:hidden">Costos variables</span><span className="hidden sm:inline">Costos Variables (CMV + Pasarela)</span></span>
                 <Percent className="w-4 h-4 text-amber-500" />
               </div>
-              <div className="text-2xl font-extrabold text-slate-700">
+              <div className="text-lg sm:text-2xl font-extrabold text-slate-700">
                 -${(kpis.cmvHistoricoTotal + kpis.comisionesMediosPagoTotal).toLocaleString('es-AR')}
               </div>
-              <p className="text-[11px] text-slate-500">
+              <p className="hidden sm:block text-[11px] text-slate-500">
                 CMV prendas: ${kpis.cmvHistoricoTotal.toLocaleString('es-AR')} | Comisiones: $
                 {kpis.comisionesMediosPagoTotal.toLocaleString('es-AR')}
               </p>
             </div>
 
-            <div className="bg-indigo-50/70 p-5 rounded-2xl border border-indigo-200 shadow-xs space-y-1">
-              <div className="flex items-center justify-between text-xs font-bold uppercase text-indigo-700">
-                <span>Margen de Contribución Global</span>
+            <div className="bg-indigo-50/70 p-3 sm:p-5 rounded-2xl border border-indigo-200 shadow-xs space-y-1">
+              <div className="flex items-start sm:items-center justify-between gap-1 text-[11px] sm:text-xs font-bold uppercase text-indigo-700">
+                <span><span className="sm:hidden">Margen contrib.</span><span className="hidden sm:inline">Margen de Contribución Global</span></span>
                 <TrendingUp className="w-4 h-4 text-indigo-600" />
               </div>
-              <div className="text-2xl font-extrabold text-indigo-950">
+              <div className="text-lg sm:text-2xl font-extrabold text-indigo-950">
                 ${kpis.margenContribucionTotal.toLocaleString('es-AR')}
               </div>
               <p className="text-[11px] font-semibold text-indigo-700">
-                Representa el {kpis.margenContribucionPorcentaje}% sobre las ventas netas del
-                negocio
+                <span className="sm:hidden">{kpis.margenContribucionPorcentaje}% de las ventas</span>
+                <span className="hidden sm:inline">
+                  Representa el {kpis.margenContribucionPorcentaje}% sobre las ventas netas del
+                  negocio
+                </span>
               </p>
             </div>
 
-            <div className="bg-emerald-50/80 p-5 rounded-2xl border border-emerald-300 shadow-xs space-y-1">
-              <div className="flex items-center justify-between text-xs font-bold uppercase text-emerald-800">
-                <span>Utilidad Neta Real del Negocio</span>
+            <div className="bg-emerald-50/80 p-3 sm:p-5 rounded-2xl border border-emerald-300 shadow-xs space-y-1">
+              <div className="flex items-start sm:items-center justify-between gap-1 text-[11px] sm:text-xs font-bold uppercase text-emerald-800">
+                <span><span className="sm:hidden">Utilidad neta</span><span className="hidden sm:inline">Utilidad Neta Real del Negocio</span></span>
                 <Award className="w-4 h-4 text-emerald-600" />
               </div>
-              <div className="text-2xl font-extrabold text-emerald-900">
+              <div className="text-lg sm:text-2xl font-extrabold text-emerald-900">
                 ${kpis.utilidadNetaTotal.toLocaleString('es-AR')}
               </div>
               <p className="text-[11px] font-semibold text-emerald-800">
-                Rentabilidad Neta: {kpis.utilidadNetaPorcentaje}% (Gastos fijos: -$
-                {kpis.gastosOperativosTotal.toLocaleString('es-AR')})
+                <span className="sm:hidden">{kpis.utilidadNetaPorcentaje}% de rentabilidad</span>
+                <span className="hidden sm:inline">
+                  Rentabilidad Neta: {kpis.utilidadNetaPorcentaje}% (Gastos fijos: -$
+                  {kpis.gastosOperativosTotal.toLocaleString('es-AR')})
+                </span>
               </p>
             </div>
           </div>
 
           {/* Gráfico Global + Estado de Resultados Consolidado del Negocio */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="lg:col-span-2 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-rose-600" /> Evolución Histórica Mensual de
-                  Todo el Negocio (Tutina)
+                  <BarChart3 className="w-5 h-5 text-rose-600 shrink-0" />
+                  <span className="sm:hidden">Evolución mensual</span>
+                  <span className="hidden sm:inline">
+                    Evolución Histórica Mensual de Todo el Negocio (Tutina)
+                  </span>
                 </h2>
-                <p className="text-xs text-slate-500">
+                <p className="hidden sm:block text-xs text-slate-500">
                   Comparativa mes a mes de la Facturación Neta, el Margen de Contribución y la
                   Utilidad Neta Real de la tienda.
                 </p>
@@ -472,7 +492,7 @@ export default function ReportesFinancierosPage() {
             </div>
 
             {/* Cascada del Estado de Resultados General de Tutina */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-4">
+            <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
                   Estado de Resultados General (EERR)
@@ -630,7 +650,7 @@ export default function ReportesFinancierosPage() {
           </div>
 
           {/* Desglose de Gastos Operativos Imputados */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <h3 className="text-sm font-bold text-slate-900">
               Gastos Operativos y Costos Fijos Imputados al Negocio
             </h3>

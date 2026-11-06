@@ -160,6 +160,8 @@ export default function ProveedoresFacturasPage() {
 
   // Estado del Apartado de Registro de Proveedores
   const [busquedaProv, setBusquedaProv] = useState('');
+  // En celular el alta de proveedor se abre con un botón para no tapar el directorio
+  const [formProvAbiertoMovil, setFormProvAbiertoMovil] = useState(false);
   const [nuevoProvForm, setNuevoProvForm] = useState({
     nombreProveedor: '',
     numeroProveedor: '+54911',
@@ -593,6 +595,7 @@ export default function ProveedoresFacturasPage() {
       setMensajeExitoProv(
         `¡Proveedor "${data.nombreProveedor}" registrado en el sistema y disponible para asociar a prendas y facturas!`
       );
+      setFormProvAbiertoMovil(false);
       setNuevoProvForm({
         nombreProveedor: '',
         numeroProveedor: '+54911',
@@ -709,54 +712,58 @@ export default function ProveedoresFacturasPage() {
   return (
     <div className="space-y-6">
       {/* Encabezado y Selector de Apartados */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+          <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
             Abastecimiento, Directorio de Proveedores & Facturas
           </span>
-          <h1 className="text-2xl font-bold text-slate-900 mt-1">
-            Gestión de Proveedores e Ingreso de Mercadería
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 sm:mt-1">
+            <span className="sm:hidden">Proveedores y facturas</span>
+            <span className="hidden sm:inline">Gestión de Proveedores e Ingreso de Mercadería</span>
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="hidden sm:block text-sm text-slate-500">
             Registra nuevos proveedores en el sistema, administra sus datos de contacto y carga sus
             facturas para actualizar stock y costos automáticamente.
           </p>
         </div>
 
         {/* Selector de Apartado */}
-        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 shrink-0 self-start lg:self-auto">
+        <div className="grid grid-cols-3 sm:inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 shrink-0 sm:self-start lg:self-auto">
           <button
             type="button"
             onClick={() => setVistaActiva('AMBOS')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+            className={`px-2 sm:px-3.5 min-h-11 sm:min-h-0 py-2 rounded-lg text-sm sm:text-xs font-bold transition cursor-pointer ${
               vistaActiva === 'AMBOS'
                 ? 'bg-rose-600 text-white shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Vista Completa
+            <span className="sm:hidden">Todo</span>
+            <span className="hidden sm:inline">Vista Completa</span>
           </button>
           <button
             type="button"
             onClick={() => setVistaActiva('PROVEEDORES')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+            className={`px-2 sm:px-3.5 min-h-11 sm:min-h-0 py-2 rounded-lg text-sm sm:text-xs font-bold transition cursor-pointer ${
               vistaActiva === 'PROVEEDORES'
                 ? 'bg-rose-600 text-white shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            🏢 Registro de Proveedores ({proveedores.length})
+            <span className="sm:hidden">Proveedores</span>
+            <span className="hidden sm:inline">🏢 Registro de Proveedores ({proveedores.length})</span>
           </button>
           <button
             type="button"
             onClick={() => setVistaActiva('FACTURAS')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+            className={`px-2 sm:px-3.5 min-h-11 sm:min-h-0 py-2 rounded-lg text-sm sm:text-xs font-bold transition cursor-pointer ${
               vistaActiva === 'FACTURAS'
                 ? 'bg-rose-600 text-white shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            📄 Carga de Facturas ({facturas.length})
+            <span className="sm:hidden">Facturas</span>
+            <span className="hidden sm:inline">📄 Carga de Facturas ({facturas.length})</span>
           </button>
         </div>
       </div>
@@ -765,13 +772,15 @@ export default function ProveedoresFacturasPage() {
       {/* APARTADO 1: REGISTRO Y DIRECTORIO DE PROVEEDORES                  */}
       {/* ================================================================= */}
       {(vistaActiva === 'AMBOS' || vistaActiva === 'PROVEEDORES') && (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 sm:space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3 sm:pb-4">
             <div>
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-rose-600" /> Apartado de Registro de Proveedores
+                <UserPlus className="w-5 h-5 text-rose-600 shrink-0" />
+                <span className="sm:hidden">Proveedores ({proveedores.length})</span>
+                <span className="hidden sm:inline">Apartado de Registro de Proveedores</span>
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="hidden sm:block text-xs text-slate-500">
                 Da de alta a los proveedores mayoristas o fabricantes que aún no están en el
                 sistema.
               </p>
@@ -803,10 +812,34 @@ export default function ProveedoresFacturasPage() {
             </div>
           )}
 
-          {/* Formulario permanente para Registrar Nuevo Proveedor */}
+          {/* Celular: el alta se abre con este botón */}
+          <button
+            type="button"
+            onClick={() => setFormProvAbiertoMovil((v) => !v)}
+            aria-expanded={formProvAbiertoMovil}
+            className={`sm:hidden w-full min-h-11 inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold cursor-pointer ${
+              formProvAbiertoMovil
+                ? 'border border-slate-300 bg-white text-slate-700'
+                : 'bg-rose-600 text-white active:bg-rose-700'
+            }`}
+          >
+            {formProvAbiertoMovil ? (
+              <>
+                <X className="w-4 h-4" /> Cerrar alta de proveedor
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4" /> Nuevo proveedor
+              </>
+            )}
+          </button>
+
+          {/* Formulario para Registrar Nuevo Proveedor (siempre visible desde sm) */}
           <form
             onSubmit={handleCrearProveedor}
-            className="p-5 rounded-2xl bg-rose-50/50 border border-rose-200/80 space-y-4"
+            className={`p-3 sm:p-5 rounded-2xl bg-rose-50/50 border border-rose-200/80 space-y-4 ${
+              formProvAbiertoMovil ? '' : 'max-sm:hidden'
+            }`}
           >
             <div className="text-xs font-bold uppercase tracking-wider text-rose-800 flex items-center gap-1.5">
               <Plus className="w-4 h-4" /> Registrar Nuevo Proveedor en Tutina
@@ -837,6 +870,7 @@ export default function ProveedoresFacturasPage() {
                   type="text"
                   required
                   placeholder="+54911..."
+                  inputMode="tel"
                   value={nuevoProvForm.numeroProveedor}
                   onChange={(e) =>
                     setNuevoProvForm({ ...nuevoProvForm, numeroProveedor: e.target.value })
@@ -867,6 +901,8 @@ export default function ProveedoresFacturasPage() {
                 <input
                   type="text"
                   placeholder="https://..."
+                  inputMode="url"
+                  autoCapitalize="none"
                   value={nuevoProvForm.webProveedor}
                   onChange={(e) =>
                     setNuevoProvForm({ ...nuevoProvForm, webProveedor: e.target.value })
@@ -1023,14 +1059,14 @@ export default function ProveedoresFacturasPage() {
                         <button
                           type="button"
                           onClick={() => setProveedorEditando(pr)}
-                          className="text-indigo-600 hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
+                          className="text-indigo-600 hover:underline font-semibold flex items-center gap-0.5 cursor-pointer max-sm:min-h-11 max-sm:px-3 max-sm:rounded-lg max-sm:border max-sm:border-indigo-200 max-sm:bg-white max-sm:text-sm"
                         >
                           <Edit3 className="w-3 h-3" /> Editar
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDarBajaProveedor(pr.codProveedor, pr.nombreProveedor)}
-                          className="text-rose-600 hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
+                          className="text-rose-600 hover:underline font-semibold flex items-center gap-0.5 cursor-pointer max-sm:min-h-11 max-sm:px-3 max-sm:rounded-lg max-sm:border max-sm:border-rose-200 max-sm:bg-white max-sm:text-sm"
                         >
                           <Trash2 className="w-3 h-3" /> Baja
                         </button>

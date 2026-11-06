@@ -16,6 +16,7 @@ import {
   Banknote,
   X,
   Sparkles,
+  ChevronDown,
 } from 'lucide-react';
 import { useAppConfig } from '@/components/layout/AppShell';
 
@@ -99,6 +100,15 @@ function HistorialPedidosContent() {
 
   // Estado para el formulario de Registrar Entrega Parcial en un pedido
   const [pedidoConEntregaAbierta, setPedidoConEntregaAbierta] = useState<number | null>(null);
+  // En celular el detalle (prendas, pagos, historial) de cada pedido se abre con un toque
+  const [detallesAbiertos, setDetallesAbiertos] = useState<Set<number>>(new Set());
+  const alternarDetalle = (nro: number) =>
+    setDetallesAbiertos((prev) => {
+      const sig = new Set(prev);
+      if (sig.has(nro)) sig.delete(nro);
+      else sig.add(nro);
+      return sig;
+    });
   const [montoEntregaInput, setMontoEntregaInput] = useState<string>('');
   const [codFPSeleccionada, setCodFPSeleccionada] = useState<number>(0);
   const [notaEntregaInput, setNotaEntregaInput] = useState<string>('');
@@ -283,15 +293,16 @@ function HistorialPedidosContent() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-row items-center justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
             Trazabilidad de Estados, Entregas Parciales y Devoluciones
           </span>
-          <h1 className="text-2xl font-bold text-slate-900 mt-1">
-            Historial de Pedidos, Pagos y Saldos
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 sm:mt-1">
+            <span className="sm:hidden">Pedidos</span>
+            <span className="hidden sm:inline">Historial de Pedidos, Pagos y Saldos</span>
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="hidden sm:block text-sm text-slate-500">
             Controla el <strong>Total del Pedido</strong>, <strong>Total Pagado</strong> y{' '}
             <strong>Total a Pagar</strong>, registrando entregas parciales o devoluciones en tiempo
             real.
@@ -299,21 +310,21 @@ function HistorialPedidosContent() {
         </div>
         <Link
           href="/pedidos/nuevo"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 transition shrink-0"
+          className="inline-flex items-center gap-2 px-4 min-h-11 sm:min-h-0 py-2.5 rounded-xl bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 transition shrink-0"
         >
           <PlusCircle className="w-4 h-4" /> Nuevo Pedido
         </Link>
       </div>
 
       {/* Filtro rápido por Estado de Pedido */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 flex flex-wrap items-center gap-2">
-        <span className="text-xs font-bold text-slate-500 mr-1">Filtrar por estado:</span>
+      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 flex flex-nowrap sm:flex-wrap items-center gap-2 scroll-chips scroll-px-3">
+        <span className="hidden sm:inline text-xs font-bold text-slate-500 mr-1">Filtrar por estado:</span>
         <button
           type="button"
           onClick={() => setFiltroEstado('TODOS')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+          className={`shrink-0 px-3 min-h-10 sm:min-h-0 py-1.5 rounded-xl text-sm sm:text-xs font-bold transition cursor-pointer ${
             filtroEstado === 'TODOS'
-              ? 'bg-slate-900 text-white'
+              ? 'bg-slate-900 text-white dark:ring-2 dark:ring-inset dark:ring-rose-500'
               : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
           }`}
         >
@@ -326,7 +337,7 @@ function HistorialPedidosContent() {
               key={ep.codEP}
               type="button"
               onClick={() => setFiltroEstado(String(ep.codEP))}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              className={`shrink-0 px-3 min-h-10 sm:min-h-0 py-1.5 rounded-xl text-sm sm:text-xs font-bold transition cursor-pointer ${
                 filtroEstado === String(ep.codEP)
                   ? 'bg-rose-600 text-white'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -376,19 +387,21 @@ function HistorialPedidosContent() {
             const tieneSaldoPendiente = totalAPagar > 0 && !estaDevuelto;
             const esPedidoResaltado = pedidoResaltadoId === ped.nroPedido;
             const panelEntregaAbierto = pedidoConEntregaAbierta === ped.nroPedido;
+            const detalleAbierto = esPedidoResaltado || detallesAbiertos.has(ped.nroPedido);
+            const cantidadPrendas = ped.detallesPedido.reduce((acc, d) => acc + d.Cantidad, 0);
 
             return (
               <div
                 id={`pedido-card-${ped.nroPedido}`}
                 key={ped.nroPedido}
-                className={`bg-white rounded-2xl border p-5 shadow-xs space-y-4 transition-all ${
+                className={`bg-white rounded-2xl border p-4 sm:p-5 shadow-xs space-y-3 sm:space-y-4 transition-all ${
                   esPedidoResaltado
                     ? 'border-2 border-rose-500 ring-2 ring-rose-500/20'
                     : 'border-slate-200'
                 }`}
               >
                 {/* Cabecera del Pedido */}
-                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 border-b border-slate-100 pb-3 sm:pb-4">
                   <div className="flex flex-wrap items-center gap-2.5">
                     <span className="px-3 py-1 rounded-xl bg-slate-900 text-white font-mono text-sm font-bold">
                       Pedido #{String(ped.nroPedido).padStart(4, '0')}
@@ -409,7 +422,7 @@ function HistorialPedidosContent() {
                     </span>
 
                     {tieneSaldoPendiente && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold">
+                      <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold">
                         <AlertCircle className="w-3.5 h-3.5 text-amber-600" /> Resta abonar $
                         {totalAPagar.toLocaleString('es-AR')}
                       </span>
@@ -417,21 +430,24 @@ function HistorialPedidosContent() {
                   </div>
 
                   {/* Acciones Rápidas: Entrega Parcial, Marcar Cobrado, Devolver, Cambiar Estado */}
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
                     {tieneSaldoPendiente && (
                       <button
                         type="button"
                         onClick={() => abrirPanelEntregaParcial(ped)}
-                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shadow-2xs ${
+                        className={`inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 min-h-11 sm:min-h-0 py-1.5 rounded-xl text-sm sm:text-xs font-bold transition cursor-pointer shadow-2xs ${
                           panelEntregaAbierto
                             ? 'bg-slate-900 text-white'
                             : 'bg-rose-600 text-white hover:bg-rose-700'
                         }`}
                       >
-                        <Banknote className="w-4 h-4" />
-                        {panelEntregaAbierto
-                          ? 'Cerrar Entrega Parcial'
-                          : 'Registrar Entrega Parcial'}
+                        <Banknote className="w-4 h-4 shrink-0" />
+                        <span className="sm:hidden">{panelEntregaAbierto ? 'Cerrar' : 'Registrar pago'}</span>
+                        <span className="hidden sm:inline">
+                          {panelEntregaAbierto
+                            ? 'Cerrar Entrega Parcial'
+                            : 'Registrar Entrega Parcial'}
+                        </span>
                       </button>
                     )}
 
@@ -446,7 +462,7 @@ function HistorialPedidosContent() {
                             'Cobro total recibido de pedido que estaba entregado y pendiente de pago'
                           )
                         }
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition cursor-pointer"
+                        className="inline-flex items-center justify-center gap-1 px-3 min-h-11 sm:min-h-0 py-1.5 rounded-xl bg-emerald-600 text-white text-sm sm:text-xs font-bold hover:bg-emerald-700 transition cursor-pointer"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" /> Saldar Total
                       </button>
@@ -463,13 +479,15 @@ function HistorialPedidosContent() {
                             `Devolución registrada desde estado "${ped.estadoActual.nombreEP}" (Stock reintegrado)`
                           )
                         }
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
+                        className="inline-flex items-center justify-center gap-1 px-3 min-h-11 sm:min-h-0 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-sm sm:text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
                       >
-                        <RotateCcw className="w-3.5 h-3.5" /> Devolver Prendas
+                        <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                        <span className="sm:hidden">Devolver</span>
+                        <span className="hidden sm:inline">Devolver Prendas</span>
                       </button>
                     )}
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="col-span-2 flex items-center gap-1.5">
                       <span className="text-xs font-semibold text-slate-500">Estado:</span>
                       <select
                         disabled={cambiandoId === ped.nroPedido}
@@ -477,7 +495,7 @@ function HistorialPedidosContent() {
                         onChange={(e) =>
                           handleCambiarEstado(ped.nroPedido, Number(e.target.value))
                         }
-                        className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-300 bg-slate-50"
+                        className="flex-1 sm:flex-none min-w-0 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-300 bg-slate-50"
                       >
                         {estados.map((ep) => (
                           <option key={ep.codEP} value={ep.codEP}>
@@ -493,41 +511,44 @@ function HistorialPedidosContent() {
                 </div>
 
                 {/* RESUMEN FINANCIERO DEL PEDIDO: TOTAL PEDIDO | TOTAL PAGADO | TOTAL A PAGAR */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-500 uppercase">
-                      Total del Pedido
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 p-2 sm:p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="p-2 sm:p-2.5 rounded-xl bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-0.5">
+                    <span className="text-[11px] sm:text-xs font-bold text-slate-500 uppercase">
+                      <span className="sm:hidden">Total</span>
+                      <span className="hidden sm:inline">Total del Pedido</span>
                     </span>
-                    <span className="text-base font-extrabold text-slate-900">
+                    <span className="text-sm sm:text-base font-extrabold text-slate-900">
                       ${ped.total.toLocaleString('es-AR')}
                     </span>
                   </div>
 
-                  <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-800 uppercase">
-                      Total Pagado
+                  <div className="p-2 sm:p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-0.5">
+                    <span className="text-[11px] sm:text-xs font-bold text-emerald-800 uppercase">
+                      <span className="sm:hidden">Pagado</span>
+                      <span className="hidden sm:inline">Total Pagado</span>
                     </span>
-                    <span className="text-base font-extrabold text-emerald-700">
+                    <span className="text-sm sm:text-base font-extrabold text-emerald-700">
                       ${totalPagado.toLocaleString('es-AR')}
                     </span>
                   </div>
 
                   <div
-                    className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                    className={`p-2 sm:p-2.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-0.5 ${
                       totalAPagar > 0 && !estaDevuelto
                         ? 'bg-rose-50 border-rose-300'
                         : 'bg-slate-100 border-slate-200'
                     }`}
                   >
                     <span
-                      className={`text-xs font-bold uppercase ${
+                      className={`text-[11px] sm:text-xs font-bold uppercase ${
                         totalAPagar > 0 && !estaDevuelto ? 'text-rose-800' : 'text-slate-500'
                       }`}
                     >
-                      Total a Pagar
+                      <span className="sm:hidden">Saldo</span>
+                      <span className="hidden sm:inline">Total a Pagar</span>
                     </span>
                     <span
-                      className={`text-base font-extrabold ${
+                      className={`text-sm sm:text-base font-extrabold ${
                         totalAPagar > 0 && !estaDevuelto ? 'text-rose-600' : 'text-slate-600'
                       }`}
                     >
@@ -642,8 +663,26 @@ function HistorialPedidosContent() {
                   </form>
                 )}
 
+                {/* Celular: el detalle se abre con un toque para que la lista de pedidos sea corta */}
+                <button
+                  type="button"
+                  onClick={() => alternarDetalle(ped.nroPedido)}
+                  aria-expanded={detalleAbierto}
+                  className="sm:hidden w-full min-h-11 flex items-center justify-between gap-2 px-3 rounded-xl bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-700 cursor-pointer"
+                >
+                  <span>
+                    {detalleAbierto ? 'Ocultar detalle' : 'Ver detalle'} • {cantidadPrendas}{' '}
+                    {cantidadPrendas === 1 ? 'prenda' : 'prendas'}
+                  </span>
+                  <ChevronDown
+                    className={`w-4 h-4 text-slate-500 transition-transform ${
+                      detalleAbierto ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
                 {/* Detalle de Prendas del Pedido: lista compacta en móvil */}
-                <ul className="sm:hidden divide-y divide-slate-100 text-sm">
+                <ul className={`sm:hidden divide-y divide-slate-100 text-sm ${detalleAbierto ? '' : 'hidden'}`}>
                   {ped.detallesPedido.map((d) => (
                     <li key={d.idDetallePedido} className="py-2.5 flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -713,7 +752,11 @@ function HistorialPedidosContent() {
                 </div>
 
                 {/* Pie con Historial de Pagos / Entregas Parciales, Historial Estados y Margen */}
-                <div className="pt-3 border-t border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
+                <div
+                  className={`pt-3 border-t border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs ${
+                    detalleAbierto ? '' : 'max-sm:hidden'
+                  }`}
+                >
                   <div className="flex flex-col gap-1.5 text-slate-600">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="flex items-center gap-1.5 font-semibold">

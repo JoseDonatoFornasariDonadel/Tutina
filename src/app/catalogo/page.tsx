@@ -23,6 +23,7 @@ import {
   ChevronRight,
   ArrowUpDown,
   EyeOff,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { ColorSelector, type ColorOpcion } from '@/components/catalogo/ColorSelector';
 import {
@@ -31,6 +32,7 @@ import {
   type CategoriaOpcion,
 } from '@/components/catalogo/CategoriaSelector';
 import { NuevaPrendaModal } from '@/components/catalogo/NuevaPrendaModal';
+import { BottomSheet } from '@/components/mobile/BottomSheet';
 import { mapearTextoAColorHex } from '@/lib/colores';
 import {
   calcularCoeficienteReventa,
@@ -132,6 +134,8 @@ export default function CatalogoPage() {
   const [ordenAntiguedad, setOrdenAntiguedad] = useState<'MAS_RECIENTES' | 'MAS_ANTIGUAS'>(
     'MAS_RECIENTES'
   );
+  // En celular los filtros van en un panel inferior
+  const [filtrosMovilAbiertos, setFiltrosMovilAbiertos] = useState(false);
 
   // Apartado de Gestión de Marcas
   const [mostrarApartadoMarcas, setMostrarApartadoMarcas] = useState(false);
@@ -581,12 +585,87 @@ export default function CatalogoPage() {
   const indiceInicio = totalItems === 0 ? 0 : (paginaActual - 1) * PRENDAS_POR_PAGINA + 1;
   const indiceFin = Math.min(paginaActual * PRENDAS_POR_PAGINA, totalItems);
 
+  const filtrosActivos =
+    (filtroCategoria !== 'TODAS' ? 1 : 0) +
+    (filtroMarca !== 'TODAS' ? 1 : 0) +
+    (filtroTemporada !== 'TODAS' ? 1 : 0) +
+    (ordenAntiguedad !== 'MAS_RECIENTES' ? 1 : 0);
+
+  // Selectores de categoría, marca, temporada y orden (escritorio y panel inferior móvil)
+  const renderSelectoresFiltro = () => (
+    <>
+        <select
+          value={filtroCategoria}
+          onChange={(e) => {
+            setFiltroCategoria(e.target.value);
+            setPaginaActual(1);
+          }}
+          className="px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+        >
+          <option value="TODAS">Categoría: Todas</option>
+          {categorias.map((c) => (
+            <option key={c.codCategoria} value={c.codCategoria}>
+              {c.nombreCategoria} ({c.markupPorDefectoCategoria}% Markup)
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={filtroMarca}
+          onChange={(e) => {
+            setFiltroMarca(e.target.value);
+            setPaginaActual(1);
+          }}
+          className="px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+        >
+          <option value="TODAS">Marca: Todas</option>
+          {marcas.map((m) => (
+            <option key={m.codMarca} value={m.codMarca}>
+              {m.nombreMarca}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={filtroTemporada}
+          onChange={(e) => {
+            setFiltroTemporada(e.target.value);
+            setPaginaActual(1);
+          }}
+          className="px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+        >
+          <option value="TODAS">Temporada: Todas</option>
+          {temporadas.map((t) => (
+            <option key={t.codTemporada} value={t.codTemporada}>
+              {t.nombreTemporada}
+            </option>
+          ))}
+        </select>
+
+        {/* Nuevo Filtro por Antigüedad de las Prendas */}
+        <div className="relative">
+          <ArrowUpDown className="w-3.5 h-3.5 text-rose-600 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <select
+            value={ordenAntiguedad}
+            onChange={(e) => {
+              setOrdenAntiguedad(e.target.value as 'MAS_RECIENTES' | 'MAS_ANTIGUAS');
+              setPaginaActual(1);
+            }}
+            className="w-full pl-8 pr-3 py-2 text-xs font-bold rounded-xl border border-rose-200 bg-rose-50/40 text-rose-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+          >
+            <option value="MAS_RECIENTES">Antigüedad: Más recientes primero</option>
+            <option value="MAS_ANTIGUAS">Antigüedad: Más antiguas primero</option>
+          </select>
+        </div>
+    </>
+  );
+
   return (
     <div className="space-y-6">
       {/* Encabezado */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
               Catálogo Maestro
             </span>
@@ -596,35 +675,46 @@ export default function CatalogoPage() {
               {PRENDAS_POR_PAGINA} por página)
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 mt-1">
-            Catálogo de Indumentaria, Marcas, Costos y Markup
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 sm:mt-1">
+            <span className="sm:hidden">Catálogo</span>
+            <span className="hidden sm:inline">
+              Catálogo de Indumentaria, Marcas, Costos y Markup
+            </span>
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="sm:hidden text-xs text-slate-500 mt-0.5">
+            {totalItems} prendas • Página {paginaActual} de {totalPages}
+          </p>
+          <p className="hidden sm:block text-sm text-slate-500">
             Administra las marcas de <strong>Tutina</strong>, incorpora prendas con múltiples talles,
             colores e imágenes, y actualiza costos o descuentos con un clic.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2.5 shrink-0">
           <button
             type="button"
             onClick={() => setMostrarApartadoMarcas(!mostrarApartadoMarcas)}
-            className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold border transition cursor-pointer ${
+            className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 min-h-11 sm:min-h-0 py-2.5 text-sm font-semibold border transition cursor-pointer ${
               mostrarApartadoMarcas
                 ? 'bg-slate-900 text-white border-slate-900'
                 : 'bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200'
             }`}
           >
-            <BookmarkPlus className="w-4 h-4 text-rose-500" />
-            {mostrarApartadoMarcas
-              ? 'Ocultar Apartado de Marcas'
-              : `Apartado de Marcas (${marcas.length})`}
+            <BookmarkPlus className="w-4 h-4 text-rose-500 shrink-0" />
+            <span className="sm:hidden">
+              {mostrarApartadoMarcas ? 'Ocultar marcas' : `Marcas (${marcas.length})`}
+            </span>
+            <span className="hidden sm:inline">
+              {mostrarApartadoMarcas
+                ? 'Ocultar Apartado de Marcas'
+                : `Apartado de Marcas (${marcas.length})`}
+            </span>
           </button>
 
           <button
             type="button"
             onClick={abrirModalNuevaPrenda}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-rose-700 transition cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 min-h-11 sm:min-h-0 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-rose-700 transition cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Nueva Prenda
           </button>
@@ -774,7 +864,7 @@ export default function CatalogoPage() {
       )}
 
       {/* Barra de Filtros + Selector de Antigüedad */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 grid grid-cols-[1fr_auto] sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
@@ -789,70 +879,57 @@ export default function CatalogoPage() {
           />
         </div>
 
-        <select
-          value={filtroCategoria}
-          onChange={(e) => {
-            setFiltroCategoria(e.target.value);
-            setPaginaActual(1);
-          }}
-          className="px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+        {/* Celular: botón que abre los filtros en un panel inferior */}
+        <button
+          type="button"
+          onClick={() => setFiltrosMovilAbiertos(true)}
+          className="sm:hidden relative touch-target px-3 rounded-xl border border-slate-200 bg-white text-slate-700 cursor-pointer gap-1.5 text-sm font-bold"
         >
-          <option value="TODAS">Categoría: Todas</option>
-          {categorias.map((c) => (
-            <option key={c.codCategoria} value={c.codCategoria}>
-              {c.nombreCategoria} ({c.markupPorDefectoCategoria}% Markup)
-            </option>
-          ))}
-        </select>
+          <SlidersHorizontal className="w-4 h-4" />
+          Filtros
+          {filtrosActivos > 0 && (
+            <span className="min-w-5 h-5 px-1 rounded-full bg-rose-600 text-white text-[11px] font-extrabold flex items-center justify-center">
+              {filtrosActivos}
+            </span>
+          )}
+        </button>
 
-        <select
-          value={filtroMarca}
-          onChange={(e) => {
-            setFiltroMarca(e.target.value);
-            setPaginaActual(1);
-          }}
-          className="px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
-        >
-          <option value="TODAS">Marca: Todas</option>
-          {marcas.map((m) => (
-            <option key={m.codMarca} value={m.codMarca}>
-              {m.nombreMarca}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={filtroTemporada}
-          onChange={(e) => {
-            setFiltroTemporada(e.target.value);
-            setPaginaActual(1);
-          }}
-          className="px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
-        >
-          <option value="TODAS">Temporada: Todas</option>
-          {temporadas.map((t) => (
-            <option key={t.codTemporada} value={t.codTemporada}>
-              {t.nombreTemporada}
-            </option>
-          ))}
-        </select>
-
-        {/* Nuevo Filtro por Antigüedad de las Prendas */}
-        <div className="relative">
-          <ArrowUpDown className="w-3.5 h-3.5 text-rose-600 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <select
-            value={ordenAntiguedad}
-            onChange={(e) => {
-              setOrdenAntiguedad(e.target.value as 'MAS_RECIENTES' | 'MAS_ANTIGUAS');
-              setPaginaActual(1);
-            }}
-            className="w-full pl-8 pr-3 py-2 text-xs font-bold rounded-xl border border-rose-200 bg-rose-50/40 text-rose-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
-          >
-            <option value="MAS_RECIENTES">Antigüedad: Más recientes primero</option>
-            <option value="MAS_ANTIGUAS">Antigüedad: Más antiguas primero</option>
-          </select>
-        </div>
+        {/* Escritorio: selectores en la misma fila (display: contents los deja en la grilla) */}
+        <div className="hidden sm:contents">{renderSelectoresFiltro()}</div>
       </div>
+
+      <BottomSheet
+        abierto={filtrosMovilAbiertos}
+        onCerrar={() => setFiltrosMovilAbiertos(false)}
+        titulo="Filtros del catálogo"
+        subtitulo={`${totalItems} prendas encontradas`}
+        pie={
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setFiltroCategoria('TODAS');
+                setFiltroMarca('TODAS');
+                setFiltroTemporada('TODAS');
+                setOrdenAntiguedad('MAS_RECIENTES');
+                setPaginaActual(1);
+              }}
+              className="min-h-12 px-4 rounded-xl border border-slate-300 text-sm font-bold text-slate-700 cursor-pointer"
+            >
+              Limpiar
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltrosMovilAbiertos(false)}
+              className="flex-1 min-h-12 rounded-xl bg-rose-600 text-white text-sm font-bold active:bg-rose-700 cursor-pointer"
+            >
+              {loading ? 'Buscando…' : `Ver ${totalItems} prendas`}
+            </button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-3 [&_select]:w-full">{renderSelectoresFiltro()}</div>
+      </BottomSheet>
 
       {/* Grilla Visual del Catálogo (12 prendas por página) */}
       {loading ? (
@@ -880,11 +957,60 @@ export default function CatalogoPage() {
             return (
               <div
                 key={prod.codProducto}
+                role="button"
+                tabIndex={0}
+                aria-label={`Editar ${prod.nombre}`}
                 onClick={() => setProductoEditando(JSON.parse(JSON.stringify(prod)))}
-                className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md hover:border-rose-300 transition-all flex flex-col cursor-pointer"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setProductoEditando(JSON.parse(JSON.stringify(prod)));
+                  }
+                }}
+                className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md hover:border-rose-300 active:border-rose-300 transition-all flex flex-col cursor-pointer"
               >
-                {/* Imagen y Badges Superiores */}
-                <div className="relative h-56 w-full bg-slate-100 overflow-hidden">
+                {/* Celular: miniatura + datos clave en una fila (la foto grande ocupaba media pantalla) */}
+                <div className="sm:hidden flex gap-3 p-3 pb-0">
+                  <div className="relative w-20 h-20 shrink-0 rounded-xl bg-slate-100 overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={prod.imagen} alt="" className="w-full h-full object-cover" />
+                    {pctDesc > 0 && (
+                      <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-rose-600 text-white">
+                        -{pctDesc}%
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-bold text-slate-900 text-[15px] leading-snug line-clamp-2">
+                        {prod.nombre}
+                      </h3>
+                      <Edit3 className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" aria-hidden="true" />
+                    </div>
+                    <p className="text-xs text-slate-500 truncate mt-0.5">
+                      {prod.categoria.nombreCategoria} • {prod.marca.nombreMarca} • {temporadaTexto}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                          variantesCriticas.length > 0
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-emerald-100 text-emerald-800'
+                        }`}
+                      >
+                        Stock: {stockTotal} u.
+                      </span>
+                      {!prod.visibleEnTiendaOnline && (
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-500 text-white inline-flex items-center gap-1">
+                          <EyeOff className="w-3 h-3" /> Oculta
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Imagen y Badges Superiores (desde sm) */}
+                <div className="hidden sm:block relative h-56 w-full bg-slate-100 overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={prod.imagen}
@@ -928,8 +1054,8 @@ export default function CatalogoPage() {
                 </div>
 
                 {/* Cuerpo de la Prenda */}
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                  <div>
+                <div className="p-3 sm:p-5 flex-1 flex flex-col justify-between space-y-3 sm:space-y-4">
+                  <div className="hidden sm:block">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="font-bold text-slate-900 text-base group-hover:text-rose-600 transition">
                         {prod.nombre}
@@ -1056,8 +1182,8 @@ export default function CatalogoPage() {
       {/* ================================================================= */}
       {/* BARRA DE PAGINACIÓN DEL CATÁLOGO (12 PRENDAS POR PÁGINA)          */}
       {/* ================================================================= */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="text-xs text-slate-600">
+      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="hidden sm:block text-xs text-slate-600">
           Mostrando <strong>{indiceInicio}</strong> a <strong>{indiceFin}</strong> de{' '}
           <strong>{totalItems}</strong> prendas totales ({PRENDAS_POR_PAGINA} prendas por página •
           Orden:{' '}
@@ -1069,22 +1195,27 @@ export default function CatalogoPage() {
           )
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-1.5">
           <button
             type="button"
             disabled={paginaActual <= 1 || loading}
             onClick={() => setPaginaActual((p) => Math.max(1, p - 1))}
-            className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40 cursor-pointer transition"
+            className="inline-flex items-center gap-1 px-3 min-h-11 sm:min-h-0 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40 cursor-pointer transition"
           >
             <ChevronLeft className="w-4 h-4" /> Anterior
           </button>
+
+          {/* En celular, con muchas páginas los números no entran: solo "Página X de Y" */}
+          <span className="sm:hidden text-sm font-bold text-slate-700">
+            Página {paginaActual} de {totalPages}
+          </span>
 
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((numPag) => (
             <button
               key={numPag}
               type="button"
               onClick={() => setPaginaActual(numPag)}
-              className={`w-9 h-9 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+              className={`hidden sm:block w-9 h-9 rounded-xl text-xs font-extrabold transition cursor-pointer ${
                 numPag === paginaActual
                   ? 'bg-rose-600 text-white shadow-2xs'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -1098,7 +1229,7 @@ export default function CatalogoPage() {
             type="button"
             disabled={paginaActual >= totalPages || loading}
             onClick={() => setPaginaActual((p) => Math.min(totalPages, p + 1))}
-            className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40 cursor-pointer transition"
+            className="inline-flex items-center gap-1 px-3 min-h-11 sm:min-h-0 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40 cursor-pointer transition"
           >
             Siguiente <ChevronRight className="w-4 h-4" />
           </button>
@@ -1109,29 +1240,59 @@ export default function CatalogoPage() {
       {/* MODAL DE EDICIÓN DE PRENDA: COSTO, MARKUP, PRECIO, DESCUENTO Y VARIANTES    */}
       {/* =========================================================================== */}
       {productoEditando && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-4xl w-full border border-slate-200 shadow-2xl overflow-hidden my-8">
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <Calculator className="w-5 h-5 text-rose-400" />
-                <div>
-                  <h2 className="text-base font-bold">
-                    Editar Prenda: Costo, Markup, Descuento y Variantes
-                  </h2>
-                  <p className="text-xs text-slate-400">{productoEditando.nombre}</p>
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-start sm:items-center justify-center sm:p-4 overflow-y-auto scroll-touch">
+          <div className="bg-white sm:rounded-2xl max-w-4xl w-full min-h-dvh sm:min-h-0 border-slate-200 sm:border shadow-2xl sm:overflow-hidden sm:my-8">
+            <div className="sticky top-0 z-20 sm:static bg-slate-900 text-white pt-safe">
+              <div className="px-4 sm:px-6 py-2 sm:py-4 min-h-14 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Calculator className="w-5 h-5 text-rose-400 shrink-0" />
+                  <div className="min-w-0">
+                    <h2 className="text-base font-bold truncate">
+                      <span className="sm:hidden">{productoEditando.nombre}</span>
+                      <span className="hidden sm:inline">
+                        Editar Prenda: Costo, Markup, Descuento y Variantes
+                      </span>
+                    </h2>
+                    <p className="hidden sm:block text-xs text-slate-400">{productoEditando.nombre}</p>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setProductoEditando(null)}
+                  aria-label="Cerrar"
+                  className="touch-target -mr-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                onClick={() => setProductoEditando(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+
+              {/* Celular: accesos directos a cada sección del formulario */}
+              <nav aria-label="Secciones" className="sm:hidden scroll-chips scroll-px-4 flex gap-2 px-4 pb-2.5">
+                {[
+                  { id: 'edicion-precio', label: 'Precio' },
+                  { id: 'edicion-descuento', label: 'Descuento' },
+                  { id: 'edicion-datos', label: 'Datos' },
+                  { id: 'edicion-talles', label: 'Talles y stock' },
+                ].map((sec) => (
+                  <button
+                    key={sec.id}
+                    type="button"
+                    onClick={() =>
+                      document
+                        .getElementById(sec.id)
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }
+                    className="shrink-0 min-h-9 px-3.5 rounded-full bg-slate-800 text-slate-100 text-sm font-semibold active:bg-slate-700 cursor-pointer"
+                  >
+                    {sec.label}
+                  </button>
+                ))}
+              </nav>
             </div>
 
             <form
               onSubmit={guardarEdicionProducto}
-              className="p-6 space-y-6 max-h-[82vh] overflow-y-auto"
+              className="p-4 sm:p-6 space-y-5 sm:space-y-6 sm:max-h-[82vh] sm:overflow-y-auto"
             >
               {/* Visibilidad en la tienda pública */}
               <label className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-slate-200 bg-slate-50/70 cursor-pointer">
@@ -1163,8 +1324,11 @@ export default function CatalogoPage() {
               </label>
 
               {/* Simulador interactivo de Precio de Costo -> Markup -> Precio de Venta */}
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-rose-50/70 via-white to-indigo-50/50 border border-rose-200/80 space-y-4">
-                <div className="flex items-center justify-between">
+              <div
+                id="edicion-precio"
+                className="scroll-mt-32 sm:scroll-mt-4 p-3 sm:p-5 rounded-2xl bg-gradient-to-br from-rose-50/70 via-white to-indigo-50/50 border border-rose-200/80 space-y-4"
+              >
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-rose-700 flex items-center gap-1.5">
                     <Sparkles className="w-4 h-4" /> Calculadora Automática de Reventa (Markup)
                   </span>
@@ -1182,7 +1346,7 @@ export default function CatalogoPage() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
                   <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
                     <label className="block text-xs font-bold text-slate-600 mb-1">
                       1. Precio de Costo ($)
@@ -1259,7 +1423,10 @@ export default function CatalogoPage() {
               </div>
 
               {/* Bloque de Gestión, Creación y Remoción de Descuento Promocional */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+              <div
+                id="edicion-descuento"
+                className="scroll-mt-32 sm:scroll-mt-4 p-3 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3"
+              >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
@@ -1408,7 +1575,10 @@ export default function CatalogoPage() {
               </div>
 
               {/* Datos Comerciales, Marca, Categoría y Proveedor */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div
+                id="edicion-datos"
+                className="scroll-mt-32 sm:scroll-mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+              >
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Nombre de la Prenda
@@ -1576,8 +1746,8 @@ export default function CatalogoPage() {
               )}
 
               {/* Lista Editable de Variantes (Talle, Color, Stock e Imagen) */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
+              <div id="edicion-talles" className="scroll-mt-32 sm:scroll-mt-4 space-y-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-2">
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
                     <Layers className="w-4 h-4 text-slate-500" /> Lista de Variantes (Talle, Color,
                     Stock e Imagen)
@@ -1605,7 +1775,7 @@ export default function CatalogoPage() {
                         variantes: nuevas as ProductoCat['variantes'],
                       });
                     }}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 hover:underline cursor-pointer"
+                    className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 text-sm sm:text-xs font-bold text-rose-600 hover:underline cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" /> Agregar nuevo elemento Talle / Color
                   </button>
@@ -1615,7 +1785,7 @@ export default function CatalogoPage() {
                   {productoEditando.variantes.map((v, idx) => (
                     <div
                       key={v.codVariante ?? `new-${idx}`}
-                      className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 grid grid-cols-1 sm:grid-cols-12 gap-3 items-center text-xs"
+                      className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 grid grid-cols-2 sm:grid-cols-12 gap-3 items-center text-xs"
                     >
                       <div className="sm:col-span-3">
                         <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
@@ -1643,7 +1813,7 @@ export default function CatalogoPage() {
                         </select>
                       </div>
 
-                      <div className="sm:col-span-3">
+                      <div className="max-sm:col-span-2 max-sm:order-2 sm:col-span-3">
                         <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
                           Color
                         </label>
@@ -1683,7 +1853,7 @@ export default function CatalogoPage() {
                         />
                       </div>
 
-                      <div className="sm:col-span-4 flex items-center gap-2">
+                      <div className="max-sm:col-span-2 max-sm:order-3 sm:col-span-4 flex items-center gap-2">
                         <div className="w-10 h-10 rounded-lg border border-slate-200 bg-white overflow-hidden flex items-center justify-center shrink-0">
                           {v.imagenVariante ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -1714,33 +1884,41 @@ export default function CatalogoPage() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-slate-200">
+              <div className="max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:-mx-4 max-sm:px-4 max-sm:pb-safe-4 bg-white flex flex-wrap items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={eliminarProducto}
                   disabled={eliminando || guardando}
-                  className="mr-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-200 text-sm font-semibold text-rose-700 hover:bg-rose-50 cursor-pointer disabled:opacity-50"
+                  aria-label="Eliminar prenda"
+                  className="mr-auto inline-flex items-center justify-center gap-1.5 min-h-12 min-w-12 sm:min-h-0 sm:min-w-0 px-3 sm:px-4 py-2 rounded-xl border border-rose-200 text-sm font-semibold text-rose-700 hover:bg-rose-50 cursor-pointer disabled:opacity-50"
                 >
                   <Trash2 className="w-4 h-4" />
-                  {eliminando ? 'Eliminando...' : 'Eliminar prenda'}
+                  <span className="hidden sm:inline">
+                    {eliminando ? 'Eliminando...' : 'Eliminar prenda'}
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setProductoEditando(null)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  className="min-h-12 sm:min-h-0 px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={guardando || comprimiendoImagen}
-                  className="px-5 py-2 rounded-xl bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 transition cursor-pointer disabled:opacity-50"
+                  className="max-sm:flex-1 min-h-12 sm:min-h-0 px-5 py-2 rounded-xl bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 transition cursor-pointer disabled:opacity-50"
                 >
-                  {comprimiendoImagen
-                    ? 'Procesando foto...'
-                    : guardando
-                    ? 'Guardando...'
-                    : 'Guardar Cambios de la Prenda'}
+                  {comprimiendoImagen ? (
+                    'Procesando foto...'
+                  ) : guardando ? (
+                    'Guardando...'
+                  ) : (
+                    <>
+                      <span className="sm:hidden">Guardar cambios</span>
+                      <span className="hidden sm:inline">Guardar Cambios de la Prenda</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
