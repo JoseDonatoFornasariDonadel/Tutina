@@ -1,0 +1,63 @@
+# Revisa cada PR (y cada cambio en main) antes de publicar:
+# tipos de TypeScript, pruebas unitarias y pruebas contra una base Postgres de prueba.
+# La base es temporal y vive solo durante esta corrida: nunca se toca Supabase.
+name: Pruebas
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: pruebas-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tutina_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tutina_test
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/tutina_test
+      TUTINA_TEST_DB: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Generar el cliente de Prisma
+        run: npx prisma generate
+
+      - name: Revisar tipos (TypeScript)
+        run: npm run typecheck
+
+      - name: Pruebas unitarias
+        run: npm test
+
+      - name: Crear las tablas en la base de prueba
+        run: npx prisma db push --skip-generate
+
+      - name: Pruebas de integración (pedidos, stock, facturas, login y fotos)
+        run: npm run test:integracion

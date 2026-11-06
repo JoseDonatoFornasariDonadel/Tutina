@@ -29,6 +29,15 @@ export async function registrarFacturaIngreso(input: RegistrarFacturaInput) {
   if (!input.detalles || input.detalles.length === 0) {
     throw new Error('La factura debe incluir al menos un ítem en el detalle de ingreso.');
   }
+  // Una cantidad negativa restaría stock; un costo negativo rompería los reportes
+  for (const d of input.detalles) {
+    if (!Number.isInteger(Number(d.cantidadDI)) || Number(d.cantidadDI) <= 0) {
+      throw new Error('Cada ítem de la factura debe tener una cantidad entera mayor a 0.');
+    }
+    if (!Number.isFinite(Number(d.precioIndividual)) || Number(d.precioIndividual) < 0) {
+      throw new Error('Cada ítem de la factura debe tener un costo válido (0 o más).');
+    }
+  }
 
   return await prisma.$transaction(async (tx) => {
     let costoTotalCalculado = 0;

@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import {
   calcularPrecioNetoConDescuento,
@@ -25,10 +26,41 @@ export interface CrearPedidoInput {
   items: ItemPedidoInput[];
 }
 
-export async function registrarNuevoPedido(input: CrearPedidoInput) {
-  if (!input.items || input.items.length === 0) {
+type ClienteTx = Prisma.TransactionClient;
+
+/**
+ * Descuenta stock en un solo paso: la condición "stock >= cantidad" y el descuento van en
+ * la misma instrucción. Así dos pedidos simultáneos de la última unidad no pueden pasar
+ * los dos (el stock nunca queda negativo). Devuelve false si no alcanza.
+ */
+async function descontarStockSiAlcanza(tx: ClienteTx, codVariante: number, cantidad: number) {
+  const resultado = await tx.varianteProducto.updateMany({
+    where: { codVariante, stock: { gte: cantidad } },
+    data: { stock: { decrement: cantidad } },
+  });
+  return resultado.count === 1;
+}
+
+/** Cada ítem necesita una variante válida y una cantidad entera mayor a cero. */
+export function validarItemsPedido(items: ItemPedidoInput[] | undefined): ItemPedidoInput[] {
+  if (!items || items.length === 0) {
     throw new Error('El pedido debe contener al menos un producto seleccionado.');
   }
+  return items.map((item) => {
+    const codVariante = Number(item.codVariante);
+    const cantidad = Number(item.cantidad);
+    if (!Number.isInteger(codVariante) || codVariante <= 0) {
+      throw new Error('Hay un producto del pedido que no es válido.');
+    }
+    if (!Number.isInteger(cantidad) || cantidad <= 0) {
+      throw new Error('Cada producto del pedido debe tener una cantidad entera mayor a 0.');
+    }
+    return { codVariante, cantidad };
+  });
+}
+
+export async function registrarNuevoPedido(input: CrearPedidoInput) {
+  const items = validarItemsPedido(input.items);
 
   return await prisma.$transaction(async (tx) => {
     const fechaPedido = input.fechaPedido ? new Date(input.fechaPedido) : new Date();
@@ -66,7 +98,7 @@ export async function registrarNuevoPedido(input: CrearPedidoInput) {
     const alertasWhatsAppDisparadas: DisparoAlertaResultado[] = [];
 
     // 2. Procesar cada ítem, validar y descontar stock, y congelar Snapshot Histórico
-    for (const item of input.items) {
+    for (const item of items) {
       const variante = await tx.varianteProducto.findUnique({
         where: { codVariante: item.codVariante },
         include: {
@@ -110,10 +142,12 @@ export async function registrarNuevoPedido(input: CrearPedidoInput) {
       });
 
       if (estadoInicial.reservaStock) {
-        await tx.varianteProducto.update({
-          where: { codVariante: variante.codVariante },
-          data: { stock: { decrement: item.cantidad } },
-        });
+        // Otro pedido pudo llevarse el stock entre la consulta y este momento
+        if (!(await descontarStockSiAlcanza(tx, variante.codVariante, item.cantidad))) {
+          throw new Error(
+            `Stock insuficiente para "${variante.producto.nombre}" (${variante.talle.nombreTalle} - ${variante.color.nombreColor}): otro pedido acaba de usar ese stock. Revisá las cantidades y volvé a intentar.`
+          );
+        }
 
         const resultadoAlerta = await evaluarYDispararAlertaStock(
           tx,
@@ -386,10 +420,17 @@ export async function cambiarEstadoPedido(
     } else if (!pedido.estadoActual.reservaStock && nuevoEstado.reservaStock) {
       // Si se reactiva un pedido devuelto/cancelado, vuelve a descontar stock
       for (const det of pedido.detallesPedido) {
-        await tx.varianteProducto.update({
-          where: { codVariante: det.codVariante },
-          data: { stock: { decrement: det.Cantidad } },
-        });
+        // Si esas unidades ya se vendieron en otro pedido, no se puede reactivar
+        if (!(await descontarStockSiAlcanza(tx, det.codVariante, det.Cantidad))) {
+          const v = await tx.varianteProducto.findUnique({
+            where: { codVariante: det.codVariante },
+            include: { producto: true, talle: true, color: true },
+          });
+          throw new Error(
+            `No hay stock para reactivar el pedido: "${v?.producto.nombre ?? `variante #${det.codVariante}`}"` +
+              (v ? ` (${v.talle.nombreTalle} - ${v.color.nombreColor}) tiene ${v.stock} y el pedido necesita ${det.Cantidad}.` : '.')
+          );
+        }
         await evaluarYDispararAlertaStock(tx, det.codVariante, 'CAMBIO_ESTADO_PEDIDO');
       }
     }
