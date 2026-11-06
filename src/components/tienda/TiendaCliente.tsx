@@ -24,6 +24,7 @@ import {
   Moon,
   ExternalLink,
   SlidersHorizontal,
+  ZoomIn,
 } from 'lucide-react';
 import { useAppConfig } from '@/components/layout/AppShell';
 import { ImagenProducto } from '@/components/tienda/ImagenProducto';
@@ -261,6 +262,28 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
   const refBolsa = useRef<HTMLDivElement>(null);
   const refDetalle = useRef<HTMLDivElement>(null);
 
+  // Foto del detalle a pantalla completa, con el fondo difuminado
+  const [fotoAmpliada, setFotoAmpliada] = useState<{ src: string; alt: string } | null>(null);
+  const refFotoAmpliada = useRef<HTMLDivElement>(null);
+  const refBotonFoto = useRef<HTMLButtonElement>(null);
+  const fotoAbierta = fotoAmpliada !== null;
+  useEffect(() => {
+    if (!fotoAbierta) return;
+    refFotoAmpliada.current?.focus({ preventScroll: true });
+    // Escape cierra solo la foto (no el detalle que queda debajo)
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopImmediatePropagation();
+      setFotoAmpliada(null);
+    };
+    window.addEventListener('keydown', alTeclear, true);
+    return () => {
+      window.removeEventListener('keydown', alTeclear, true);
+      // Al cerrar, el foco vuelve a la foto del detalle
+      refBotonFoto.current?.focus({ preventScroll: true });
+    };
+  }, [fotoAbierta]);
+
   // Escape cierra la bolsa de consulta
   useEffect(() => {
     if (!drawerAbierto) return;
@@ -275,7 +298,10 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
   // Con el detalle abierto: la página de fondo no se desplaza y Escape lo cierra
   const detalleAbierto = productoDetalleModal !== null;
   useEffect(() => {
-    if (!detalleAbierto) return;
+    if (!detalleAbierto) {
+      setFotoAmpliada(null);
+      return;
+    }
     const overflowPrevio = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     refDetalle.current?.focus({ preventScroll: true });
@@ -1369,6 +1395,37 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
         </div>
       )}
 
+      {/* Foto a pantalla completa con el fondo difuminado: se cierra tocando en cualquier lugar */}
+      {fotoAmpliada && (
+        <div
+          ref={refFotoAmpliada}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Foto: ${fotoAmpliada.alt}`}
+          onClick={() => setFotoAmpliada(null)}
+          className="animate-sheet-fondo-entrada fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 backdrop-blur-xl outline-none pt-safe pb-safe cursor-zoom-out"
+        >
+          <button
+            type="button"
+            onClick={() => setFotoAmpliada(null)}
+            aria-label="Cerrar foto"
+            className="absolute top-[calc(0.75rem+env(safe-area-inset-top,0px))] right-3 z-10 touch-target rounded-full bg-white/90 text-slate-800 shadow-lg cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div className="relative w-full h-full max-w-3xl mx-3 my-16">
+            <ImagenProducto
+              src={fotoAmpliada.src}
+              alt={fotoAmpliada.alt}
+              fill
+              sizes="100vw"
+              className="object-contain drop-shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Modal de Vista Ampliada de Prenda */}
       {productoDetalleModal && (
         <div
@@ -1395,7 +1452,7 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
 
               return (
                 <>
-                  <div className="relative h-60 sm:h-72 md:h-full bg-slate-100">
+                  <div className="relative w-full aspect-[4/5] max-h-[62dvh] sm:aspect-auto sm:max-h-none sm:h-96 md:h-full md:min-h-[28rem] bg-slate-100">
                     {/* Cerrar sobre la foto, a mano en celular */}
                     <button
                       type="button"
@@ -1405,13 +1462,33 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                     >
                       <X className="w-5 h-5" />
                     </button>
-                    <ImagenProducto
-                      src={imgModal}
-                      alt={`${productoDetalleModal.nombre} - ${colorModal?.nombreColor || ''}`}
-                      fill
-                      sizes="(min-width: 768px) 50vw, 100vw"
-                      className="object-cover transition-all duration-300"
-                    />
+                    {/* Tocar la foto la abre en grande */}
+                    <button
+                      ref={refBotonFoto}
+                      type="button"
+                      onClick={() =>
+                        setFotoAmpliada({
+                          src: imgModal,
+                          alt: `${productoDetalleModal.nombre} - ${colorModal?.nombreColor || ''}`,
+                        })
+                      }
+                      aria-label="Ver la foto en grande"
+                      className="group/foto absolute inset-0 cursor-zoom-in"
+                    >
+                      <ImagenProducto
+                        src={imgModal}
+                        alt={`${productoDetalleModal.nombre} - ${colorModal?.nombreColor || ''}`}
+                        fill
+                        sizes="(min-width: 768px) 50vw, 100vw"
+                        className="object-cover transition-all duration-300"
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/70 text-white text-xs font-bold backdrop-blur-sm group-hover/foto:bg-slate-900/85 transition"
+                      >
+                        <ZoomIn className="w-4 h-4" /> Ampliar
+                      </span>
+                    </button>
                   </div>
 
                   <div className="p-4 sm:p-6 flex flex-col justify-between space-y-4 md:overflow-y-auto md:max-h-[90vh]">
