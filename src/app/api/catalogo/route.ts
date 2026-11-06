@@ -8,6 +8,11 @@ import {
 } from '@/lib/services/whatsapp.service';
 import { mapearTextoAColorHex } from '@/lib/colores';
 import { urlImagenPublica } from '@/lib/services/tienda.service';
+import {
+  esFaltaTablaFotos,
+  migrarFotosAnteriores,
+  sincronizarPortadasDeLaPrenda,
+} from '@/lib/services/fotos.service';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -304,6 +309,9 @@ export async function PUT(request: Request) {
 
       return { producto: prodActualizado, alertasDisparadas };
     });
+
+    // Los talles nuevos o que cambiaron de color toman la portada de la galería de su color
+    await sincronizarPortadasDeLaPrenda(resultado.producto.codProducto);
 
     revalidatePath('/tienda');
     return NextResponse.json(resultado);
@@ -604,6 +612,13 @@ export async function POST(request: Request) {
         variantes: { include: { talle: true, color: true } },
       },
     });
+
+    // La foto cargada para cada color pasa a ser la primera de su galería
+    try {
+      await migrarFotosAnteriores(nuevoProd.codProducto);
+    } catch (error) {
+      if (!esFaltaTablaFotos(error)) throw error;
+    }
 
     revalidatePath('/tienda');
     return NextResponse.json(nuevoProd);

@@ -5,6 +5,7 @@ import {
   calcularPrecioNetoConDescuento,
   obtenerPorcentajeDescuentoVigente,
 } from '@/lib/services/pricing.service';
+import { obtenerFotosAgrupadas } from '@/lib/services/fotos.service';
 
 export const PRENDAS_POR_PAGINA_TIENDA = 12;
 
@@ -139,6 +140,8 @@ export async function obtenerVidrieraPublica(filtros: FiltrosVidriera = {}) {
   ]);
 
   const ahora = new Date();
+  // Galería de cada color (todos los talles de un color comparten fotos)
+  const fotosPorProducto = await obtenerFotosAgrupadas(productosRaw.map((p) => p.codProducto));
 
   // Sanitización estricta: Jamás exponemos precioCosto, porcentajeMarkup ni proveedores al público
   const productosPublicos = productosRaw.map((p) => {
@@ -168,6 +171,9 @@ export async function obtenerVidrieraPublica(filtros: FiltrosVidriera = {}) {
         talle: v.talle,
         color: v.color,
       })),
+      fotosPorColor: [...(fotosPorProducto.get(p.codProducto)?.entries() ?? [])].map(
+        ([codColor, fotos]) => ({ codColor, fotos: fotos.map((f) => f.url) })
+      ),
     };
   });
 

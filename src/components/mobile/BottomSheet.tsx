@@ -14,6 +14,10 @@ interface BottomSheetProps {
   pie?: React.ReactNode;
   /** Altura máxima del panel. Por defecto 85% del alto visible. */
   alturaMaxima?: string;
+  /** Ancho del panel centrado en escritorio (clase de Tailwind). Por defecto sm:max-w-lg. */
+  anchoEscritorio?: string;
+  /** Elemento extra junto al título (por ejemplo, un contador) */
+  accesorioTitulo?: React.ReactNode;
 }
 
 // Distancia (px) que hay que arrastrar hacia abajo para cerrar el panel
@@ -35,6 +39,8 @@ export function BottomSheet({
   children,
   pie,
   alturaMaxima = '85dvh',
+  anchoEscritorio = 'sm:max-w-lg',
+  accesorioTitulo,
 }: BottomSheetProps) {
   const idTitulo = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -60,21 +66,29 @@ export function BottomSheet({
     return () => clearTimeout(t);
   }, [abierto, montado]);
 
-  // Bloqueo de scroll del body y cierre con Escape
+  // Se guarda en una ref: si el padre pasa una función nueva en cada render, el panel
+  // no vuelve a tomar el foco (lo que interrumpiría a quien está escribiendo adentro)
+  const refCerrar = useRef(onCerrar);
+  refCerrar.current = onCerrar;
+
+  // Bloqueo de scroll del body, cierre con Escape y foco al abrir
   useEffect(() => {
     if (!abierto) return;
+    const previo = document.activeElement as HTMLElement | null;
     const overflowPrevio = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const alTeclear = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCerrar();
+      if (e.key === 'Escape') refCerrar.current();
     };
     window.addEventListener('keydown', alTeclear);
     panelRef.current?.focus({ preventScroll: true });
     return () => {
       document.body.style.overflow = overflowPrevio;
       window.removeEventListener('keydown', alTeclear);
+      // El foco vuelve al botón que abrió el panel
+      previo?.focus?.({ preventScroll: true });
     };
-  }, [abierto, onCerrar]);
+  }, [abierto]);
 
   const alEmpezarArrastre = useCallback((e: React.PointerEvent) => {
     inicioArrastre.current = e.clientY;
@@ -122,7 +136,7 @@ export function BottomSheet({
           transform: arrastre ? `translateY(${arrastre}px)` : undefined,
           transition: arrastrando ? 'none' : undefined,
         }}
-        className={`relative w-full sm:max-w-lg flex flex-col bg-white rounded-t-3xl sm:rounded-3xl border border-slate-200 shadow-2xl outline-none transition-transform duration-200 ${
+        className={`relative w-full ${anchoEscritorio} flex flex-col bg-white rounded-t-3xl sm:rounded-3xl border border-slate-200 shadow-2xl outline-none transition-transform duration-200 ${
           saliendo ? 'animate-sheet-salida' : 'animate-sheet-entrada'
         }`}
       >
@@ -145,6 +159,7 @@ export function BottomSheet({
             </h2>
             {subtitulo && <p className="text-xs text-slate-500 mt-0.5">{subtitulo}</p>}
           </div>
+          {accesorioTitulo && <div className="ml-auto shrink-0">{accesorioTitulo}</div>}
           <button
             type="button"
             onClick={onCerrar}

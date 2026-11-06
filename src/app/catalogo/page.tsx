@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import {
   Search,
   Edit3,
@@ -17,21 +17,29 @@ import {
   Trash2,
   Building2,
   BookmarkPlus,
-  Upload,
   Image as ImageIcon,
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
   EyeOff,
   SlidersHorizontal,
+  Camera,
+  Images,
 } from 'lucide-react';
-import { ColorSelector, type ColorOpcion } from '@/components/catalogo/ColorSelector';
+import type { ColorOpcion } from '@/components/catalogo/ColorSelector';
 import {
   CategoriaSelector,
   agregarCategoria,
   type CategoriaOpcion,
 } from '@/components/catalogo/CategoriaSelector';
 import { NuevaPrendaModal } from '@/components/catalogo/NuevaPrendaModal';
+import { GestionFotosSheet, type ColorDeLaPrenda } from '@/components/catalogo/GestionFotosSheet';
+import {
+  GestionVariantesSheet,
+  type VarianteEditable,
+} from '@/components/catalogo/GestionVariantesSheet';
+import { useGaleriaPrenda, type GaleriaPrenda } from '@/components/catalogo/galeriaPrenda';
+import { ImagenProducto } from '@/components/tienda/ImagenProducto';
 import { BottomSheet } from '@/components/mobile/BottomSheet';
 import { mapearTextoAColorHex } from '@/lib/colores';
 import {
@@ -42,7 +50,6 @@ import {
   obtenerPorcentajeDescuentoVigente,
 } from '@/lib/services/pricing.service';
 import { useAppConfig } from '@/components/layout/AppShell';
-import { comprimirImagen } from '@/lib/comprimirImagen';
 
 const PRENDAS_POR_PAGINA = 12;
 
@@ -187,6 +194,8 @@ export default function CatalogoPage() {
           ordenAntiguedad,
         });
 
+        // ligero=1: las fotos llegan como URL corta en vez de base64 (carga mucho más rápida)
+        params.set('ligero', '1');
         const res = await fetch(`/api/catalogo?${params.toString()}`, { cache: 'no-store' });
         const data = await res.json();
         setProductos(data.productos || []);
@@ -224,45 +233,93 @@ export default function CatalogoPage() {
     setModalNuevoProd(true);
   };
 
-  // Las fotos se comprimen en el navegador antes de guardarlas (ver comprimirImagen)
-  const [comprimiendoImagen, setComprimiendoImagen] = useState(false);
+  // Fotos (por color) y variantes de la prenda en edición: cada una en su propio panel
+  const {
+    galeria,
+    setGaleria,
+    cargando: cargandoGaleria,
+    error: errorGaleria,
+    faltaActualizarBase,
+    recargar: recargarGaleria,
+  } = useGaleriaPrenda(productoEditando?.codProducto ?? null);
+  const [panelFotos, setPanelFotos] = useState<{ codColor?: number } | null>(null);
+  const [panelVariantes, setPanelVariantes] = useState(false);
+  // Las fotos se guardan al instante: al cerrar la edición se refresca el catálogo
+  const fotosCambiadas = useRef(false);
 
-  const prepararImagen = async (file: File): Promise<string | null> => {
-    setComprimiendoImagen(true);
-    try {
-      return await comprimirImagen(file);
-    } catch {
-      alert('No se pudo procesar la imagen. Probá con otro archivo.');
-      return null;
-    } finally {
-      setComprimiendoImagen(false);
+  const alActualizarGaleria = (nueva: GaleriaPrenda) => {
+    setGaleria(nueva);
+    fotosCambiadas.current = true;
+    // Las miniaturas de la edición muestran la portada nueva de cada color
+    const portadas = new Map(nueva.colores.map((c) => [c.codColor, c.fotos[0]?.url ?? null]));
+    setProductoEditando((prev) =>
+      prev
+        ? {
+            ...prev,
+            variantes: prev.variantes.map((v) => {
+              const cod = v.codColor ?? v.color?.codColor;
+              return cod !== undefined && portadas.has(cod)
+                ? { ...v, imagenVariante: portadas.get(cod) }
+                : v;
+            }) as ProductoCat['variantes'],
+          }
+        : prev
+    );
+  };
+
+  useEffect(() => {
+    if (productoEditando) return;
+    setPanelFotos(null);
+    setPanelVariantes(false);
+    if (fotosCambiadas.current) {
+      fotosCambiadas.current = false;
+      cargarCatalogo(paginaActual);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productoEditando === null]);
 
-  const handleSubirImagenVarianteEdicion = async (idx: number, file?: File) => {
-    if (!file || !productoEditando) return;
-    const dataUrl = await prepararImagen(file);
-    if (!dataUrl) return;
-    // Actualización funcional: asigna la imagen a la variante y a las demás del mismo color
-    setProductoEditando((prev) => {
-      if (!prev) return prev;
-      const nuevas = [...prev.variantes];
-      if (!nuevas[idx]) return prev;
-      const codColorObj = nuevas[idx].codColor ?? nuevas[idx].color?.codColor;
-      const actualizadas = nuevas.map((v, i) => {
-        const codC = v.codColor ?? v.color?.codColor;
-        if (i === idx || (codColorObj && codC === codColorObj)) {
-          return { ...v, imagenVariante: dataUrl };
-        }
-        return v;
-      });
-      return {
-        ...prev,
-        imagen: idx === 0 ? dataUrl : prev.imagen,
-        variantes: actualizadas as ProductoCat['variantes'],
-      };
-    });
-  };
+  const productoOriginal = useMemo(
+    () =>
+      productoEditando
+        ? productos.find((p) => p.codProducto === productoEditando.codProducto) ?? null
+        : null,
+    [productoEditando, productos]
+  );
+
+  // Colores de la prenda en la edición, con sus talles (comparten las fotos)
+  const coloresEnEdicion = useMemo<ColorDeLaPrenda[]>(() => {
+    if (!productoEditando) return [];
+    const mapa = new Map<number, ColorDeLaPrenda>();
+    for (const v of productoEditando.variantes) {
+      const cod = v.codColor ?? v.color?.codColor;
+      if (cod === undefined) continue;
+      const c =
+        colores.find((x) => x.codColor === cod) ??
+        v.color ?? { codColor: cod, nombreColor: 'Color', codigoHex: '#111827' };
+      const item = mapa.get(cod) ?? { ...c, codColor: cod, talles: [] };
+      const nombreTalle =
+        talles.find((t) => t.codTalle === (v.codTalle ?? v.talle?.codTalle))?.nombreTalle ??
+        v.talle?.nombreTalle;
+      if (nombreTalle && !item.talles.includes(nombreTalle)) item.talles.push(nombreTalle);
+      mapa.set(cod, item);
+    }
+    return [...mapa.values()];
+  }, [productoEditando, colores, talles]);
+
+  // Hay cambios de talle, color o stock que todavía no se guardaron
+  const variantesSinGuardar = useMemo(() => {
+    if (!productoEditando) return false;
+    const resumen = (lista: VarianteEditable[]) =>
+      JSON.stringify(
+        lista.map((v) => [
+          v.codVariante ?? null,
+          v.codTalle ?? v.talle?.codTalle,
+          v.codColor ?? v.color?.codColor,
+          Number(v.stock),
+        ])
+      );
+    return resumen(productoEditando.variantes) !== resumen(productoOriginal?.variantes ?? []);
+  }, [productoEditando, productoOriginal]);
 
   const handleCrearMarcaApartado = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -520,25 +577,11 @@ export default function CatalogoPage() {
     if (!productoEditando) return;
     setGuardando(true);
     try {
-      // Solo se mandan las fotos que cambiaron: el resto ya está guardado. Reenviar todas
-      // (una por talle) puede superar el límite de 4,5 MB por petición de Vercel.
-      const original = productos.find((p) => p.codProducto === productoEditando.codProducto);
-      const imagenOriginalPorVariante = new Map(
-        (original?.variantes ?? []).map((v) => [v.codVariante, v.imagenVariante ?? null])
-      );
+      // Las fotos se guardan aparte, desde «Gestionar fotos»: acá no se reenvían
       const cuerpo = {
         ...productoEditando,
-        imagen:
-          original && original.imagen === productoEditando.imagen
-            ? undefined
-            : productoEditando.imagen,
-        variantes: productoEditando.variantes.map((v) => {
-          const sinCambios =
-            v.codVariante !== undefined &&
-            imagenOriginalPorVariante.has(v.codVariante) &&
-            imagenOriginalPorVariante.get(v.codVariante) === (v.imagenVariante ?? null);
-          return sinCambios ? { ...v, imagenVariante: undefined } : v;
-        }),
+        imagen: undefined,
+        variantes: productoEditando.variantes.map((v) => ({ ...v, imagenVariante: undefined })),
       };
       const res = await fetch('/api/catalogo', {
         method: 'PUT',
@@ -1276,7 +1319,7 @@ export default function CatalogoPage() {
                   { id: 'edicion-precio', label: 'Precio' },
                   { id: 'edicion-descuento', label: 'Descuento' },
                   { id: 'edicion-datos', label: 'Datos' },
-                  { id: 'edicion-talles', label: 'Talles y stock' },
+                  { id: 'edicion-talles', label: 'Fotos y talles' },
                 ].map((sec) => (
                   <button
                     key={sec.id}
@@ -1359,7 +1402,7 @@ export default function CatalogoPage() {
                       type="number"
                 inputMode="decimal"
                       min={0}
-                      step="50"
+                      step="any"
                       value={productoEditando.precioCosto}
                       onChange={(e) => handleCambioCostoEdicion(Number(e.target.value))}
                       className="w-full px-3 py-2 text-base font-bold text-slate-900 rounded-lg border border-slate-300"
@@ -1376,7 +1419,7 @@ export default function CatalogoPage() {
                     <input aria-label="2. Margen Markup (%)"
                       type="number"
                 inputMode="decimal"
-                      step="0.5"
+                      step="any"
                       value={productoEditando.porcentajeMarkup}
                       onChange={(e) => handleCambioMarkupEdicion(Number(e.target.value))}
                       className="w-full px-3 py-2 text-base font-bold text-indigo-700 rounded-lg border border-indigo-300"
@@ -1391,7 +1434,7 @@ export default function CatalogoPage() {
                     <input aria-label="Coeficiente (Ej. 2.30x)"
                       type="number"
                 inputMode="decimal"
-                      step="0.05"
+                      step="any"
                       min={1}
                       value={calcularCoeficienteReventa(productoEditando.porcentajeMarkup)}
                       onChange={(e) => handleCambioCoeficienteEdicion(Number(e.target.value))}
@@ -1410,7 +1453,7 @@ export default function CatalogoPage() {
                       type="number"
                 inputMode="decimal"
                       min={0}
-                      step="100"
+                      step="any"
                       value={productoEditando.precio}
                       onChange={(e) => handleCambioPrecioFinalManual(Number(e.target.value))}
                       className="w-full px-3 py-2 text-base font-extrabold text-emerald-800 bg-white rounded-lg border border-emerald-400"
@@ -1750,142 +1793,149 @@ export default function CatalogoPage() {
                 </div>
               )}
 
-              {/* Lista Editable de Variantes (Talle, Color, Stock e Imagen) */}
+              {/* Fotos y variantes: cada una se gestiona en su propio panel */}
               <div id="edicion-talles" className="scroll-mt-32 sm:scroll-mt-4 space-y-3">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-                    <Layers className="w-4 h-4 text-slate-500" /> Lista de Variantes (Talle, Color,
-                    Stock e Imagen)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nuevas = [
-                        ...productoEditando.variantes,
-                        {
-                          codTalle: talles[0]?.codTalle ?? 1,
-                          codColor: colores[0]?.codColor ?? 1,
-                          stock: 5,
-                          imagenVariante: null,
-                          talle: talles[0] || { codTalle: 1, nombreTalle: 'S' },
-                          color: colores[0] || {
-                            codColor: 1,
-                            nombreColor: 'Negro',
-                            codigoHex: '#111',
-                          },
-                        },
-                      ];
-                      setProductoEditando({
-                        ...productoEditando,
-                        variantes: nuevas as ProductoCat['variantes'],
-                      });
-                    }}
-                    className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 text-sm sm:text-xs font-bold text-rose-600 hover:underline cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Agregar nuevo elemento Talle / Color
-                  </button>
-                </div>
-
-                <div className="space-y-2.5">
-                  {productoEditando.variantes.map((v, idx) => (
-                    <div
-                      key={v.codVariante ?? `new-${idx}`}
-                      className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 grid grid-cols-2 sm:grid-cols-12 gap-3 items-center text-xs"
-                    >
-                      <div className="sm:col-span-3">
-                        <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                          Talle
-                        </label>
-                        <select aria-label="Talle"
-                          value={v.codTalle ?? v.talle?.codTalle}
-                          onChange={(e) => {
-                            const codT = Number(e.target.value);
-                            const tObj = talles.find((x) => x.codTalle === codT);
-                            const nuevas = [...productoEditando.variantes];
-                            nuevas[idx] = { ...v, codTalle: codT, talle: tObj || v.talle };
-                            setProductoEditando({
-                              ...productoEditando,
-                              variantes: nuevas as ProductoCat['variantes'],
-                            });
-                          }}
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-bold"
-                        >
-                          {talles.map((t) => (
-                            <option key={t.codTalle} value={t.codTalle}>
-                              {t.nombreTalle}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="max-sm:col-span-2 max-sm:order-2 sm:col-span-3">
-                        <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                          Color
-                        </label>
-                        <ColorSelector
-                          colores={colores}
-                          value={v.codColor ?? v.color?.codColor}
-                          onCrearColor={crearColor}
-                          onChange={(cObj) => {
-                            const nuevas = [...productoEditando.variantes];
-                            nuevas[idx] = { ...v, codColor: cObj.codColor, color: cObj };
-                            setProductoEditando({
-                              ...productoEditando,
-                              variantes: nuevas as ProductoCat['variantes'],
-                            });
-                          }}
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                          Stock
-                        </label>
-                        <input aria-label="Stock"
-                          type="number"
-                inputMode="numeric"
-                          min={0}
-                          value={v.stock}
-                          onChange={(e) => {
-                            const nuevas = [...productoEditando.variantes];
-                            nuevas[idx] = { ...v, stock: Number(e.target.value) };
-                            setProductoEditando({
-                              ...productoEditando,
-                              variantes: nuevas as ProductoCat['variantes'],
-                            });
-                          }}
-                          className="w-full px-2.5 py-1.5 font-bold rounded-lg border border-slate-300 bg-white"
-                        />
-                      </div>
-
-                      <div className="max-sm:col-span-2 max-sm:order-3 sm:col-span-4 flex items-center gap-2">
-                        <div className="w-10 h-10 rounded-lg border border-slate-200 bg-white overflow-hidden flex items-center justify-center shrink-0">
-                          {v.imagenVariante ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={v.imagenVariante}
-                              alt="Variante"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <ImageIcon className="w-4 h-4 text-slate-300" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                  <Images className="w-4 h-4 text-slate-500" /> Fotos y variantes
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {(() => {
+                    const totalFotos = (galeria?.colores ?? []).reduce(
+                      (acc, c) => acc + c.fotos.length,
+                      0
+                    );
+                    const coloresConFotos = (galeria?.colores ?? []).filter(
+                      (c) => c.fotos.length > 0
+                    ).length;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setPanelFotos({})}
+                        className="group text-left p-4 rounded-2xl border border-slate-200 bg-white hover:border-rose-300 hover:shadow-md active:scale-[0.99] transition cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="w-12 h-12 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                            <Camera className="w-6 h-6" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-base font-extrabold text-slate-900">
+                              Gestionar fotos
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {cargandoGaleria && !galeria
+                                ? 'Cargando fotos…'
+                                : faltaActualizarBase
+                                  ? 'Falta actualizar la base de datos'
+                                  : totalFotos === 0
+                                    ? 'Sin fotos todavía'
+                                    : `${totalFotos} ${totalFotos === 1 ? 'foto' : 'fotos'} en ${coloresConFotos} ${coloresConFotos === 1 ? 'color' : 'colores'}`}
+                            </div>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-rose-600 transition shrink-0" />
+                        </div>
+                        {/* Portada de cada color */}
+                        <div className="mt-3 flex gap-2 overflow-hidden">
+                          {coloresEnEdicion.slice(0, 5).map((c) => {
+                            const fotosColor =
+                              galeria?.colores.find((g) => g.codColor === c.codColor)?.fotos ?? [];
+                            return (
+                              <span
+                                key={c.codColor}
+                                className="relative w-12 h-14 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 shrink-0"
+                                title={`${c.nombreColor}: ${fotosColor.length} foto(s)`}
+                              >
+                                {fotosColor[0] ? (
+                                  <ImagenProducto
+                                    src={fotosColor[0].url}
+                                    alt=""
+                                    fill
+                                    sizes="48px"
+                                    className="object-cover"
+                                  />
+                                ) : (
+                                  <ImageIcon className="absolute inset-0 m-auto w-4 h-4 text-slate-300" />
+                                )}
+                                <span
+                                  className="absolute bottom-1 left-1 w-3 h-3 rounded-full border border-white shadow"
+                                  style={{
+                                    backgroundColor: mapearTextoAColorHex(c.nombreColor, c.codigoHex),
+                                  }}
+                                />
+                              </span>
+                            );
+                          })}
+                          {coloresEnEdicion.length > 5 && (
+                            <span className="w-12 h-14 rounded-lg bg-slate-100 text-xs font-bold text-slate-600 flex items-center justify-center shrink-0">
+                              +{coloresEnEdicion.length - 5}
+                            </span>
                           )}
                         </div>
-                        <label className="flex-1 py-1.5 px-2.5 rounded-lg border border-dashed border-rose-300 bg-rose-50/50 text-[11px] font-bold text-rose-700 hover:bg-rose-100/60 cursor-pointer text-center truncate">
-                          <Upload className="w-3 h-3 inline mr-1" />
-                          {v.imagenVariante ? 'Cambiar foto' : 'Cargar imagen'}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) =>
-                              handleSubirImagenVarianteEdicion(idx, e.target.files?.[0])
-                            }
-                            className="hidden"
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  ))}
+                      </button>
+                    );
+                  })()}
+
+                  {(() => {
+                    const stockTotal = productoEditando.variantes.reduce(
+                      (acc, v) => acc + (Number(v.stock) || 0),
+                      0
+                    );
+                    const criticas = productoEditando.variantes.filter((v) => v.stock < 3).length;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setPanelVariantes(true)}
+                        className="group text-left p-4 rounded-2xl border border-slate-200 bg-white hover:border-rose-300 hover:shadow-md active:scale-[0.99] transition cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0 shadow-sm">
+                            <Layers className="w-6 h-6" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-base font-extrabold text-slate-900">
+                              Gestionar variantes
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {productoEditando.variantes.length}{' '}
+                              {productoEditando.variantes.length === 1 ? 'variante' : 'variantes'} ·{' '}
+                              {stockTotal} u. en stock
+                            </div>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-rose-600 transition shrink-0" />
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {variantesSinGuardar && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-50 border border-rose-200 text-[11px] font-bold text-rose-700">
+                              Cambios sin guardar
+                            </span>
+                          )}
+                          {criticas > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-50 border border-amber-300 text-[11px] font-bold text-amber-900">
+                              <AlertTriangle className="w-3 h-3" /> {criticas} con stock bajo
+                            </span>
+                          )}
+                          {coloresEnEdicion.slice(0, 3).map((c) => (
+                            <span
+                              key={c.codColor}
+                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-semibold text-slate-700"
+                            >
+                              <span
+                                className="w-2.5 h-2.5 rounded-full border border-black/10 dark:border-white/40"
+                                style={{
+                                  backgroundColor: mapearTextoAColorHex(c.nombreColor, c.codigoHex),
+                                }}
+                              />
+                              {c.nombreColor}: {c.talles.join(', ')}
+                            </span>
+                          ))}
+                          {coloresEnEdicion.length > 3 && (
+                            <span className="px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-semibold text-slate-600">
+                              +{coloresEnEdicion.length - 3} colores
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -1911,12 +1961,10 @@ export default function CatalogoPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={guardando || comprimiendoImagen}
+                  disabled={guardando}
                   className="max-sm:flex-1 min-h-12 sm:min-h-0 px-5 py-2 rounded-xl bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 transition cursor-pointer disabled:opacity-50"
                 >
-                  {comprimiendoImagen ? (
-                    'Procesando foto...'
-                  ) : guardando ? (
+                  {guardando ? (
                     'Guardando...'
                   ) : (
                     <>
@@ -1929,6 +1977,45 @@ export default function CatalogoPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {productoEditando && (
+        <>
+          <GestionFotosSheet
+            abierto={panelFotos !== null}
+            onCerrar={() => setPanelFotos(null)}
+            codProducto={productoEditando.codProducto}
+            nombreProducto={productoEditando.nombre}
+            colores={coloresEnEdicion}
+            galeria={galeria}
+            cargando={cargandoGaleria}
+            error={errorGaleria}
+            faltaActualizarBase={faltaActualizarBase}
+            onReintentar={recargarGaleria}
+            onGaleriaActualizada={alActualizarGaleria}
+            codColorInicial={panelFotos?.codColor}
+          />
+          <GestionVariantesSheet
+            abierto={panelVariantes}
+            onCerrar={() => setPanelVariantes(false)}
+            nombreProducto={productoEditando.nombre}
+            variantes={productoEditando.variantes}
+            onCambiar={(nuevas) =>
+              setProductoEditando((prev) =>
+                prev ? { ...prev, variantes: nuevas as ProductoCat['variantes'] } : prev
+              )
+            }
+            originales={productoOriginal?.variantes ?? []}
+            talles={talles}
+            colores={colores}
+            onCrearColor={crearColor}
+            galeria={galeria}
+            onGestionarFotos={(codColor) => {
+              setPanelVariantes(false);
+              setPanelFotos({ codColor });
+            }}
+          />
+        </>
       )}
 
       {/* =========================================================================== */}

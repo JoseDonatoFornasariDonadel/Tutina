@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { ADMIN_COOKIE_NAME, verificarTokenSesionAdmin } from '@/lib/auth';
+import { esFaltaTablaFotos } from '@/lib/services/fotos.service';
 
 // Sirve como archivo las imágenes guardadas en la base en formato base64 (data URL).
 // La URL incluye una huella del contenido (version), así que la respuesta se puede
@@ -48,6 +49,24 @@ async function obtenerValorImagen(
       select: { imagenVariante: true },
     });
     return variante?.imagenVariante ?? null;
+  }
+  if (tipo === 'foto') {
+    // Galería de fotos por color de una prenda
+    try {
+      const foto = await prisma.fotoProductoColor.findFirst({
+        where: soloVisibles
+          ? {
+              idFoto: id,
+              producto: { fechaHoraBajaProd: null, visibleEnTiendaOnline: true },
+            }
+          : { idFoto: id },
+        select: { imagen: true },
+      });
+      return foto?.imagen ?? null;
+    } catch (error) {
+      if (esFaltaTablaFotos(error)) return null;
+      throw error;
+    }
   }
   return null;
 }

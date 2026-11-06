@@ -86,26 +86,27 @@ model Descuento {
 }
 
 model Producto {
-  codProducto           Int                 @id @default(autoincrement())
+  codProducto           Int                       @id @default(autoincrement())
   nombre                String
   descripcion           String
   imagen                String
   precioCosto           Float
-  porcentajeMarkup      Float               @default(120.0)
+  porcentajeMarkup      Float                     @default(120.0)
   precio                Float
-  visibleEnTiendaOnline Boolean             @default(true)
+  visibleEnTiendaOnline Boolean                   @default(true)
   fechaHoraBajaProd     DateTime?
   codMarca              Int
   codCategoria          Int
   codDescuento          Int?
   codProveedorHabitual  Int?
-  marca                 Marca               @relation(fields: [codMarca], references: [codMarca])
-  categoria             Categoria           @relation(fields: [codCategoria], references: [codCategoria])
-  descuento             Descuento?          @relation(fields: [codDescuento], references: [codDescuento])
-  proveedorHabitual     Proveedor?          @relation(fields: [codProveedorHabitual], references: [codProveedor])
+  marca                 Marca                     @relation(fields: [codMarca], references: [codMarca])
+  categoria             Categoria                 @relation(fields: [codCategoria], references: [codCategoria])
+  descuento             Descuento?                @relation(fields: [codDescuento], references: [codDescuento])
+  proveedorHabitual     Proveedor?                @relation(fields: [codProveedorHabitual], references: [codProveedor])
   variantes             VarianteProducto[]
   productosTemporada    ProductoTemporada[]
   historialPrecios      HistorialPrecioProducto[]
+  fotosColor            FotoProductoColor[]
 
   @@index([codMarca])
   @@index([codCategoria])
@@ -140,27 +141,48 @@ model Talle {
 }
 
 model Color {
-  codColor           Int                @id @default(autoincrement())
+  codColor           Int                 @id @default(autoincrement())
   nombreColor        String
-  codigoHex          String             @default("#111827")
+  codigoHex          String              @default("#111827")
   fechaHoraBajaColor DateTime?
   variantes          VarianteProducto[]
+  fotosProducto      FotoProductoColor[]
+}
+
+// Galería de fotos de una prenda en un color. Todos los talles de ese color
+// (Remera Roja S, M y L) comparten las mismas fotos. La de menor "orden" es la portada,
+// y se copia a VarianteProducto.imagenVariante para que el resto del sistema la siga usando.
+model FotoProductoColor {
+  idFoto      Int      @id @default(autoincrement())
+  codProducto Int
+  codColor    Int
+  // URL o imagen en base64 (data URL)
+  imagen      String
+  // Huella del contenido para armar la URL cacheable (/api/imagenes/foto/:id/:huella)
+  huella      String   @default("")
+  orden       Int      @default(0)
+  fechaAlta   DateTime @default(now())
+  producto    Producto @relation(fields: [codProducto], references: [codProducto], onDelete: Cascade)
+  color       Color    @relation(fields: [codColor], references: [codColor])
+
+  @@index([codProducto, codColor, orden])
+  @@index([codColor])
 }
 
 model VarianteProducto {
-  codVariante        Int                  @id @default(autoincrement())
-  sku                String               @unique
-  stock              Int                  @default(0)
-  umbralStockPropio  Int                  @default(3)
-  alertaStockEnviada Boolean              @default(false)
+  codVariante        Int                 @id @default(autoincrement())
+  sku                String              @unique
+  stock              Int                 @default(0)
+  umbralStockPropio  Int                 @default(3)
+  alertaStockEnviada Boolean             @default(false)
   imagenVariante     String?
   fechaHoraBajaVar   DateTime?
   codProducto        Int
   codTalle           Int
   codColor           Int
-  producto           Producto             @relation(fields: [codProducto], references: [codProducto])
-  talle              Talle                @relation(fields: [codTalle], references: [codTalle])
-  color              Color                @relation(fields: [codColor], references: [codColor])
+  producto           Producto            @relation(fields: [codProducto], references: [codProducto])
+  talle              Talle               @relation(fields: [codTalle], references: [codTalle])
+  color              Color               @relation(fields: [codColor], references: [codColor])
   detallesIngreso    DetalleIngreso[]
   detallesPedido     DetallePedido[]
   alertasWhatsApp    AlertaWhatsAppLog[]
@@ -176,13 +198,13 @@ model VarianteProducto {
 // 3. PROVEEDORES E INGRESOS DE MERCADERÍA
 // ==========================================
 model Proveedor {
-  codProveedor       Int        @id @default(autoincrement())
-  nombreProveedor    String
-  webProveedor       String?
-  numeroProveedor    String
-  correoProveedor    String?
-  fechaHoraBajaProv  DateTime?
-  facturas           Factura[]
+  codProveedor        Int        @id @default(autoincrement())
+  nombreProveedor     String
+  webProveedor        String?
+  numeroProveedor     String
+  correoProveedor     String?
+  fechaHoraBajaProv   DateTime?
+  facturas            Factura[]
   productosHabituales Producto[]
 }
 
@@ -268,17 +290,17 @@ model Pedido {
 }
 
 model DetallePedido {
-  idDetallePedido             Int              @id @default(autoincrement())
-  Cantidad                    Int
-  precioUnitarioVenta         Float
-  porcentajeDescuentoAplicado Int              @default(0)
-  precioUnitarioNeto          Float
+  idDetallePedido              Int              @id @default(autoincrement())
+  Cantidad                     Int
+  precioUnitarioVenta          Float
+  porcentajeDescuentoAplicado  Int              @default(0)
+  precioUnitarioNeto           Float
   precioUnitarioCostoHistorico Float
-  subtotal                    Float
-  nroPedido                   Int
-  codVariante                 Int
-  pedido                      Pedido           @relation(fields: [nroPedido], references: [nroPedido])
-  variante                    VarianteProducto @relation(fields: [codVariante], references: [codVariante])
+  subtotal                     Float
+  nroPedido                    Int
+  codVariante                  Int
+  pedido                       Pedido           @relation(fields: [nroPedido], references: [nroPedido])
+  variante                     VarianteProducto @relation(fields: [codVariante], references: [codVariante])
 
   @@index([nroPedido])
   @@index([codVariante])
@@ -300,25 +322,25 @@ model PedidoEstado {
 }
 
 model FormaPago {
-  codFP                        Int               @id @default(autoincrement())
-  nombreFP                     String
-  porcentajeComisionActual     Float             @default(0.0)
-  recargoFinancieroPorcentaje  Float             @default(0.0)
-  fechaHoraBajaFP              DateTime?
-  pagosPedido                  PedidoFormaPago[]
+  codFP                       Int               @id @default(autoincrement())
+  nombreFP                    String
+  porcentajeComisionActual    Float             @default(0.0)
+  recargoFinancieroPorcentaje Float             @default(0.0)
+  fechaHoraBajaFP             DateTime?
+  pagosPedido                 PedidoFormaPago[]
 }
 
 model PedidoFormaPago {
-  idPedidoFormaPago         Int       @id @default(autoincrement())
-  montoPFP                  Float
-  fechaPFP                  DateTime  @default(now())
-  porcentajeComisionAplicado Float    @default(0.0)
-  montoComisionCalculado    Float     @default(0.0)
-  comprobanteReferencia     String?
-  nroPedido                 Int
-  codFP                     Int
-  pedido                    Pedido    @relation(fields: [nroPedido], references: [nroPedido])
-  formaPago                 FormaPago @relation(fields: [codFP], references: [codFP])
+  idPedidoFormaPago          Int       @id @default(autoincrement())
+  montoPFP                   Float
+  fechaPFP                   DateTime  @default(now())
+  porcentajeComisionAplicado Float     @default(0.0)
+  montoComisionCalculado     Float     @default(0.0)
+  comprobanteReferencia      String?
+  nroPedido                  Int
+  codFP                      Int
+  pedido                     Pedido    @relation(fields: [nroPedido], references: [nroPedido])
+  formaPago                  FormaPago @relation(fields: [codFP], references: [codFP])
 
   @@index([nroPedido])
   @@index([codFP])
@@ -336,14 +358,14 @@ model CategoriaGasto {
 }
 
 model GastoOperativo {
-  idGasto               Int            @id @default(autoincrement())
-  descripcionGasto      String
-  montoGasto            Float
-  fechaImputacion       DateTime       @default(now())
-  comprobanteUrl        String?
-  fechaHoraBajaGasto    DateTime?
-  codCategoriaGasto     Int
-  categoriaGasto        CategoriaGasto @relation(fields: [codCategoriaGasto], references: [codCategoriaGasto])
+  idGasto            Int            @id @default(autoincrement())
+  descripcionGasto   String
+  montoGasto         Float
+  fechaImputacion    DateTime       @default(now())
+  comprobanteUrl     String?
+  fechaHoraBajaGasto DateTime?
+  codCategoriaGasto  Int
+  categoriaGasto     CategoriaGasto @relation(fields: [codCategoriaGasto], references: [codCategoriaGasto])
 
   @@index([codCategoriaGasto])
 }
@@ -352,16 +374,16 @@ model GastoOperativo {
 // 6. AUDITORÍA DE ALERTAS WHATSAPP (STOCK < 3)
 // ==========================================
 model AlertaWhatsAppLog {
-  idAlerta          Int              @id @default(autoincrement())
-  fechaDisparo      DateTime         @default(now())
-  telefonoDestino   String
-  mensajeEnviado    String
-  stockRemanente    Int
-  estadoEnvio       String           @default("ENVIADO")
-  origenDisparo     String           @default("VENTA_PEDIDO")
-  leidaEnPanel      Boolean          @default(false)
-  codVariante       Int
-  variante          VarianteProducto @relation(fields: [codVariante], references: [codVariante])
+  idAlerta        Int              @id @default(autoincrement())
+  fechaDisparo    DateTime         @default(now())
+  telefonoDestino String
+  mensajeEnviado  String
+  stockRemanente  Int
+  estadoEnvio     String           @default("ENVIADO")
+  origenDisparo   String           @default("VENTA_PEDIDO")
+  leidaEnPanel    Boolean          @default(false)
+  codVariante     Int
+  variante        VarianteProducto @relation(fields: [codVariante], references: [codVariante])
 
   @@index([codVariante])
   // Historial de alertas (últimas 50) y marcado como leídas

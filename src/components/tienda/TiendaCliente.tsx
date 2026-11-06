@@ -29,6 +29,7 @@ import {
 import { useAppConfig } from '@/components/layout/AppShell';
 import { ImagenProducto } from '@/components/tienda/ImagenProducto';
 import { BottomSheet } from '@/components/mobile/BottomSheet';
+import { CarruselFotos, GaleriaFotos } from '@/components/galeria/GaleriaFotos';
 import { SkeletonGrillaProductos } from '@/components/tienda/TiendaSkeleton';
 import { mapearTextoAColorHex } from '@/lib/colores';
 import type { VidrieraPublica } from '@/lib/services/tienda.service';
@@ -63,6 +64,8 @@ interface ProductoPublico {
   categoria: { codCategoria: number; nombreCategoria: string };
   temporadas: { anio: number; nombreTemporada: string }[];
   variantes: VariantePublica[];
+  /** Galería de cada color: todos los talles de un color comparten estas fotos */
+  fotosPorColor?: { codColor: number; fotos: string[] }[];
 }
 
 interface TiendaPublicaInfo {
@@ -179,6 +182,12 @@ function obtenerColoresUnicosProducto(prod: ProductoPublico): ColorUnicoProducto
   return colores;
 }
 
+/** Fotos del color elegido. Si el color todavía no tiene galería, se usa su foto única. */
+function fotosDelColor(prod: ProductoPublico, codColor: number | undefined, respaldo: string) {
+  const galeria = prod.fotosPorColor?.find((g) => g.codColor === codColor)?.fotos ?? [];
+  return galeria.length > 0 ? galeria : [respaldo];
+}
+
 function colorInicialPorProducto(listaProds: ProductoPublico[]): Record<number, number> {
   const seleccion: Record<number, number> = {};
   for (const p of listaProds) {
@@ -262,27 +271,16 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
   const refBolsa = useRef<HTMLDivElement>(null);
   const refDetalle = useRef<HTMLDivElement>(null);
 
-  // Foto del detalle a pantalla completa, con el fondo difuminado
-  const [fotoAmpliada, setFotoAmpliada] = useState<{ src: string; alt: string } | null>(null);
-  const refFotoAmpliada = useRef<HTMLDivElement>(null);
-  const refBotonFoto = useRef<HTMLButtonElement>(null);
-  const fotoAbierta = fotoAmpliada !== null;
+  // Fotos del color elegido en el detalle: carrusel deslizable y visor a pantalla completa
+  const [indiceFotoDetalle, setIndiceFotoDetalle] = useState(0);
+  const [galeriaAbierta, setGaleriaAbierta] = useState(false);
+  const codProductoDetalle = productoDetalleModal?.codProducto;
+  const codColorDetalle =
+    codProductoDetalle !== undefined ? colorSeleccionadoPorProd[codProductoDetalle] : undefined;
+  // Otra prenda u otro color: se vuelve a la primera foto
   useEffect(() => {
-    if (!fotoAbierta) return;
-    refFotoAmpliada.current?.focus({ preventScroll: true });
-    // Escape cierra solo la foto (no el detalle que queda debajo)
-    const alTeclear = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      e.stopImmediatePropagation();
-      setFotoAmpliada(null);
-    };
-    window.addEventListener('keydown', alTeclear, true);
-    return () => {
-      window.removeEventListener('keydown', alTeclear, true);
-      // Al cerrar, el foco vuelve a la foto del detalle
-      refBotonFoto.current?.focus({ preventScroll: true });
-    };
-  }, [fotoAbierta]);
+    setIndiceFotoDetalle(0);
+  }, [codProductoDetalle, codColorDetalle]);
 
   // Escape cierra la bolsa de consulta
   useEffect(() => {
@@ -299,7 +297,7 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
   const detalleAbierto = productoDetalleModal !== null;
   useEffect(() => {
     if (!detalleAbierto) {
-      setFotoAmpliada(null);
+      setGaleriaAbierta(false);
       return;
     }
     const overflowPrevio = document.body.style.overflow;
@@ -1395,37 +1393,6 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
         </div>
       )}
 
-      {/* Foto a pantalla completa con el fondo difuminado: se cierra tocando en cualquier lugar */}
-      {fotoAmpliada && (
-        <div
-          ref={refFotoAmpliada}
-          tabIndex={-1}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Foto: ${fotoAmpliada.alt}`}
-          onClick={() => setFotoAmpliada(null)}
-          className="animate-sheet-fondo-entrada fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 backdrop-blur-xl outline-none pt-safe pb-safe cursor-zoom-out"
-        >
-          <button
-            type="button"
-            onClick={() => setFotoAmpliada(null)}
-            aria-label="Cerrar foto"
-            className="absolute top-[calc(0.75rem+env(safe-area-inset-top,0px))] right-3 z-10 touch-target rounded-full bg-white/90 text-slate-800 shadow-lg cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-          <div className="relative w-full h-full max-w-3xl mx-3 my-16">
-            <ImagenProducto
-              src={fotoAmpliada.src}
-              alt={fotoAmpliada.alt}
-              fill
-              sizes="100vw"
-              className="object-contain drop-shadow-2xl"
-            />
-          </div>
-        </div>
-      )}
-
       {/* Modal de Vista Ampliada de Prenda */}
       {productoDetalleModal && (
         <div
@@ -1449,6 +1416,14 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                 varianteActiva: varModal,
                 imagenMostrar: imgModal,
               } = obtenerEstadoSeleccionProducto(productoDetalleModal);
+              const altFoto = `${productoDetalleModal.nombre} - ${colorModal?.nombreColor || ''}`;
+              const fotosModal = fotosDelColor(productoDetalleModal, colorModal?.codColor, imgModal).map(
+                (src, i, lista) => ({
+                  src,
+                  alt: lista.length > 1 ? `${altFoto} (foto ${i + 1} de ${lista.length})` : altFoto,
+                })
+              );
+              const indiceFoto = Math.min(indiceFotoDetalle, fotosModal.length - 1);
 
               return (
                 <>
@@ -1462,33 +1437,37 @@ export function TiendaCliente({ datosIniciales }: { datosIniciales: VidrieraPubl
                     >
                       <X className="w-5 h-5" />
                     </button>
-                    {/* Tocar la foto la abre en grande */}
-                    <button
-                      ref={refBotonFoto}
-                      type="button"
-                      onClick={() =>
-                        setFotoAmpliada({
-                          src: imgModal,
-                          alt: `${productoDetalleModal.nombre} - ${colorModal?.nombreColor || ''}`,
-                        })
-                      }
-                      aria-label="Ver la foto en grande"
-                      className="group/foto absolute inset-0 cursor-zoom-in"
-                    >
-                      <ImagenProducto
-                        src={imgModal}
-                        alt={`${productoDetalleModal.nombre} - ${colorModal?.nombreColor || ''}`}
-                        fill
-                        sizes="(min-width: 768px) 50vw, 100vw"
-                        className="object-cover transition-all duration-300"
-                      />
-                      <span
-                        aria-hidden="true"
-                        className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/70 text-white text-xs font-bold backdrop-blur-sm group-hover/foto:bg-slate-900/85 transition"
-                      >
-                        <ZoomIn className="w-4 h-4" /> Ampliar
+                    {/* Deslizar cambia de foto; tocarla la abre en grande */}
+                    <CarruselFotos
+                      fotos={fotosModal}
+                      indice={indiceFoto}
+                      onCambiarIndice={setIndiceFotoDetalle}
+                      onTocarFoto={(i) => {
+                        setIndiceFotoDetalle(i);
+                        setGaleriaAbierta(true);
+                      }}
+                      etiquetaTocar="Ver la foto en grande"
+                      sizes="(min-width: 768px) 50vw, 100vw"
+                    />
+                    {fotosModal.length > 1 && (
+                      <span className="pointer-events-none absolute top-3 left-3 z-10 px-2.5 py-1 rounded-full bg-slate-900/70 text-white text-xs font-bold backdrop-blur-sm">
+                        {indiceFoto + 1}/{fotosModal.length}
                       </span>
-                    </button>
+                    )}
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/70 text-white text-xs font-bold backdrop-blur-sm"
+                    >
+                      <ZoomIn className="w-4 h-4" /> Ampliar
+                    </span>
+                    <GaleriaFotos
+                      abierta={galeriaAbierta}
+                      fotos={fotosModal}
+                      indiceInicial={indiceFoto}
+                      onCambiarIndice={setIndiceFotoDetalle}
+                      onCerrar={() => setGaleriaAbierta(false)}
+                      titulo={`${productoDetalleModal.nombre} · ${colorModal?.nombreColor || ''}`}
+                    />
                   </div>
 
                   <div className="p-4 sm:p-6 flex flex-col justify-between space-y-4 md:overflow-y-auto md:max-h-[90vh]">
