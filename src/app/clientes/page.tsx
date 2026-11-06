@@ -161,15 +161,16 @@ export default function ClientesPage() {
   return (
     <div className="space-y-6">
       {/* Encabezado */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-row items-center justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
             Directorio de Clientes & Fidelización
           </span>
-          <h1 className="text-2xl font-bold text-slate-900 mt-1">
-            Clientes e Histórico de Prendas Compradas
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 sm:mt-1">
+            <span className="sm:hidden">Clientes</span>
+            <span className="hidden sm:inline">Clientes e Histórico de Prendas Compradas</span>
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="hidden sm:block text-sm text-slate-500">
             Selecciona cualquier cliente de la lista para desplegar la ventana con el{' '}
             <strong>histórico de prendas que ha comprado agrupadas en pedidos</strong>.
           </p>
@@ -178,7 +179,7 @@ export default function ClientesPage() {
         <button
           type="button"
           onClick={() => setMostrarNuevoCliente(!mostrarNuevoCliente)}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-rose-700 transition cursor-pointer shrink-0"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 min-h-11 sm:min-h-0 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-rose-700 transition cursor-pointer shrink-0"
         >
           <UserPlus className="w-4 h-4" /> Nuevo Cliente
         </button>
@@ -404,23 +405,23 @@ export default function ClientesPage() {
       {/* VENTANA MODAL: HISTÓRICO DE PRENDAS COMPRADAS POR EL CLIENTE AGRUPADAS EN PEDIDOS */}
       {/* ================================================================================= */}
       {clienteSeleccionado && (
-        <div className="fixed inset-0 z-50 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-4xl w-full border border-slate-200 shadow-2xl overflow-hidden my-8 flex flex-col max-h-[88vh]">
+        <div className="fixed inset-0 z-50 bg-slate-900/65 backdrop-blur-xs flex items-stretch sm:items-center justify-center sm:p-4 overflow-y-auto">
+          <div className="bg-white sm:rounded-2xl max-w-4xl w-full sm:border border-slate-200 shadow-2xl overflow-hidden sm:my-8 flex flex-col h-dvh sm:h-auto sm:max-h-[88vh]">
             {/* Cabecera de la Ventana del Cliente */}
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-rose-600 text-white font-extrabold text-sm flex items-center justify-center">
+            <div className="px-4 sm:px-6 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] sm:py-4 bg-slate-900 text-white flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 shrink-0 rounded-xl bg-rose-600 text-white font-extrabold text-sm flex items-center justify-center">
                   {clienteSeleccionado.nombreCliente.charAt(0).toUpperCase()}
                   {clienteSeleccionado.apellidoCliente.charAt(0).toUpperCase()}
                 </div>
-                <div>
-                  <h2 className="text-base font-bold flex items-center gap-2">
-                    Histórico de Prendas Compradas:{' '}
-                    <span className="text-rose-400">
+                <div className="min-w-0">
+                  <h2 className="text-base font-bold sm:flex items-center gap-2 truncate">
+                    <span className="hidden sm:inline">Histórico de Prendas Compradas: </span>
+                    <span className="sm:text-rose-400">
                       {clienteSeleccionado.apellidoCliente}, {clienteSeleccionado.nombreCliente}
                     </span>
                   </h2>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400 truncate">
                     WhatsApp: {clienteSeleccionado.telefonoCliente}
                     {clienteSeleccionado.dniCuit ? ` • DNI: ${clienteSeleccionado.dniCuit}` : ''}
                     {clienteSeleccionado.emailCliente
@@ -433,19 +434,21 @@ export default function ClientesPage() {
               <button
                 type="button"
                 onClick={() => setClienteSeleccionado(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+                aria-label="Cerrar"
+                className="touch-target -mr-2 shrink-0 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Resumen Superior del Cliente */}
-            <div className="px-6 py-3.5 bg-slate-50 border-b border-slate-200 grid grid-cols-3 gap-3 text-xs shrink-0">
+            <div className="px-4 sm:px-6 py-3 sm:py-3.5 bg-slate-50 border-b border-slate-200 grid grid-cols-3 gap-2 sm:gap-3 text-xs shrink-0">
               <div className="flex items-center gap-2.5">
-                <Hash className="w-4 h-4 text-rose-600 shrink-0" />
+                <Hash className="hidden sm:block w-4 h-4 text-rose-600 shrink-0" />
                 <div>
                   <span className="text-slate-400 block text-[10px] font-bold uppercase">
-                    Pedidos Registrados
+                    <span className="sm:hidden">Pedidos</span>
+                    <span className="hidden sm:inline">Pedidos Registrados</span>
                   </span>
                   <span className="font-extrabold text-slate-900">
                     {clienteSeleccionado.pedidos.length} pedido(s)
@@ -454,10 +457,11 @@ export default function ClientesPage() {
               </div>
 
               <div className="flex items-center gap-2.5">
-                <ShoppingBag className="w-4 h-4 text-indigo-600 shrink-0" />
+                <ShoppingBag className="hidden sm:block w-4 h-4 text-indigo-600 shrink-0" />
                 <div>
                   <span className="text-slate-400 block text-[10px] font-bold uppercase">
-                    Total Prendas Adquiridas
+                    <span className="sm:hidden">Prendas</span>
+                    <span className="hidden sm:inline">Total Prendas Adquiridas</span>
                   </span>
                   <span className="font-extrabold text-indigo-700">
                     {clienteSeleccionado.pedidos.reduce(
@@ -471,10 +475,11 @@ export default function ClientesPage() {
               </div>
 
               <div className="flex items-center gap-2.5">
-                <Users className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Users className="hidden sm:block w-4 h-4 text-emerald-600 shrink-0" />
                 <div>
                   <span className="text-slate-400 block text-[10px] font-bold uppercase">
-                    Total Acumulado en Compras
+                    <span className="sm:hidden">Total</span>
+                    <span className="hidden sm:inline">Total Acumulado en Compras</span>
                   </span>
                   <span className="font-extrabold text-emerald-700">
                     $
@@ -488,7 +493,7 @@ export default function ClientesPage() {
             </div>
 
             {/* Cuerpo de la Ventana: Lista de Prendas Compradas Agrupadas en Pedidos */}
-            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+            <div className="p-3 sm:p-6 overflow-y-auto scroll-touch space-y-4 sm:space-y-5 flex-1 min-h-0">
               {clienteSeleccionado.pedidos.length === 0 ? (
                 <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-2xl text-slate-500 space-y-2">
                   <ShoppingBag className="w-9 h-9 text-slate-300 mx-auto" />
@@ -532,10 +537,10 @@ export default function ClientesPage() {
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="max-sm:w-full flex flex-wrap items-center gap-2">
                           <Link
                             href={`/pedidos?pedidoId=${pedido.nroPedido}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition shadow-2xs"
+                            className="max-sm:w-full max-sm:justify-center inline-flex items-center gap-1.5 px-3 min-h-11 sm:min-h-0 py-1.5 rounded-xl bg-rose-600 text-white text-sm sm:text-xs font-bold hover:bg-rose-700 transition shadow-2xs"
                           >
                             <Banknote className="w-3.5 h-3.5" />
                             {(pedido.totalAPagar ?? 0) > 0 && !pedido.estadoActual.liberaStock
@@ -547,19 +552,21 @@ export default function ClientesPage() {
                       </div>
 
                       {/* Resumen de Saldos del Pedido: Total Pedido, Total Pagado, Total a Pagar */}
-                      <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                        <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white border border-slate-200">
+                      <div className="px-3 sm:px-4 py-2.5 bg-slate-50 border-b border-slate-200 grid grid-cols-3 gap-2 text-xs">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-2 sm:px-3 py-1.5 rounded-lg bg-white border border-slate-200">
                           <span className="font-bold text-slate-500 uppercase text-[10px]">
-                            Total Pedido:
+                            <span className="sm:hidden">Total</span>
+                            <span className="hidden sm:inline">Total Pedido:</span>
                           </span>
                           <span className="font-extrabold text-slate-900">
                             ${pedido.total.toLocaleString('es-AR')}
                           </span>
                         </div>
 
-                        <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-emerald-50/70 border border-emerald-200">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-2 sm:px-3 py-1.5 rounded-lg bg-emerald-50/70 border border-emerald-200">
                           <span className="font-bold text-emerald-800 uppercase text-[10px]">
-                            Total Pagado:
+                            <span className="sm:hidden">Pagado</span>
+                            <span className="hidden sm:inline">Total Pagado:</span>
                           </span>
                           <span className="font-extrabold text-emerald-700">
                             ${(pedido.totalPagado ?? 0).toLocaleString('es-AR')}
@@ -567,7 +574,7 @@ export default function ClientesPage() {
                         </div>
 
                         <div
-                          className={`flex items-center justify-between px-3 py-1.5 rounded-lg border ${
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between px-2 sm:px-3 py-1.5 rounded-lg border ${
                             (pedido.totalAPagar ?? 0) > 0 && !pedido.estadoActual.liberaStock
                               ? 'bg-rose-50 border-rose-300'
                               : 'bg-white border-slate-200'
@@ -580,7 +587,8 @@ export default function ClientesPage() {
                                 : 'text-slate-500'
                             }`}
                           >
-                            Total a Pagar:
+                            <span className="sm:hidden">Saldo</span>
+                            <span className="hidden sm:inline">Total a Pagar:</span>
                           </span>
                           <span
                             className={`font-extrabold ${
@@ -686,13 +694,14 @@ export default function ClientesPage() {
             </div>
 
             {/* Pie de la Ventana */}
-            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end shrink-0">
+            <div className="px-4 sm:px-6 pt-3 pb-safe-4 sm:py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end shrink-0">
               <button
                 type="button"
                 onClick={() => setClienteSeleccionado(null)}
-                className="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-rose-600 transition cursor-pointer"
+                className="max-sm:w-full min-h-12 sm:min-h-0 px-5 py-2 rounded-xl bg-slate-900 text-white text-sm sm:text-xs font-bold hover:bg-rose-600 transition cursor-pointer"
               >
-                Cerrar Histórico del Cliente
+                <span className="sm:hidden">Cerrar</span>
+                <span className="hidden sm:inline">Cerrar Histórico del Cliente</span>
               </button>
             </div>
           </div>
