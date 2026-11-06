@@ -33,6 +33,7 @@ import {
 } from '@/components/catalogo/NuevaPrendaModal';
 import type { ColorOpcion } from '@/components/catalogo/ColorSelector';
 import { MobileDataCard } from '@/components/mobile/MobileDataCard';
+import { Stepper, PieStepper, esPantallaChica } from '@/components/mobile/Stepper';
 import { agregarCategoria } from '@/components/catalogo/CategoriaSelector';
 import { comprimirImagen } from '@/lib/comprimirImagen';
 import { mapearTextoAColorHex } from '@/lib/colores';
@@ -171,6 +172,8 @@ export default function ProveedoresFacturasPage() {
 
   // Formulario de Nueva Factura / DetalleIngreso
   const [codProveedorSel, setCodProveedorSel] = useState<number>(0);
+  // En celular la carga de factura va en 2 pasos: datos del comprobante y prendas
+  const [pasoFactura, setPasoFactura] = useState(0);
   const [nroFactura, setNroFactura] = useState('FC-A-0001-00004890');
   const [ivaFactura, setIvaFactura] = useState(21);
   const [comprobanteUrl, setComprobanteUrl] = useState<string>('');
@@ -630,8 +633,35 @@ export default function ProveedoresFacturasPage() {
     }
   };
 
+  const PASOS_FACTURA = [{ titulo: 'Comprobante' }, { titulo: 'Prendas' }];
+
+  const irAPasoFactura = (destino: number) => {
+    if (destino > pasoFactura && pasoFactura === 0) {
+      if (!codProveedorSel) {
+        alert('Elegí el proveedor que emitió la factura.');
+        return;
+      }
+      if (!nroFactura.trim()) {
+        alert('Ingresá el número de factura.');
+        return;
+      }
+    }
+    setPasoFactura(Math.max(0, Math.min(PASOS_FACTURA.length - 1, destino)));
+    document.getElementById('form-factura')?.scrollIntoView({ block: 'start' });
+  };
+
   const handleRegistrarFactura = async (e: React.FormEvent) => {
     e.preventDefault();
+    // "Ir" del teclado en el primer paso: avanza en lugar de enviar
+    if (esPantallaChica() && pasoFactura === 0) {
+      irAPasoFactura(1);
+      return;
+    }
+    if (!nroFactura.trim()) {
+      setPasoFactura(0);
+      alert('Ingresá el número de factura.');
+      return;
+    }
     if (lineasIngreso.length === 0) {
       alert('Seleccioná al menos una variante de prenda para registrar la factura.');
       return;
@@ -656,6 +686,7 @@ export default function ProveedoresFacturasPage() {
       setNroFactura(`FC-A-0001-0000${Math.floor(5000 + Math.random() * 4000)}`);
       setComprobanteUrl('');
       setNombreArchivoComprobante('');
+      setPasoFactura(0);
       await cargarDatos();
       await refreshGlobalState();
     } catch (err: unknown) {
@@ -1063,15 +1094,30 @@ export default function ProveedoresFacturasPage() {
           )}
 
           <form
+            id="form-factura"
             onSubmit={handleRegistrarFactura}
-            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5"
+            className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5 scroll-mt-20"
           >
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
-              <FileText className="w-5 h-5 text-rose-600" /> Cargar Nueva Factura de Proveedor (
-              `Factura` + `DetalleIngreso`)
+              <FileText className="w-5 h-5 text-rose-600 shrink-0" />
+              <span className="sm:hidden">Cargar factura</span>
+              <span className="hidden sm:inline">
+                Cargar Nueva Factura de Proveedor (`Factura` + `DetalleIngreso`)
+              </span>
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+            <Stepper
+              pasos={PASOS_FACTURA}
+              pasoActual={pasoFactura}
+              onIrAPaso={irAPasoFactura}
+            />
+
+            {/* Paso 1: datos del comprobante */}
+            <div
+              className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 ${
+                pasoFactura === 0 ? '' : 'max-sm:hidden'
+              }`}
+            >
               <div className="lg:col-span-4">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Proveedor Emisor
@@ -1120,7 +1166,7 @@ export default function ProveedoresFacturasPage() {
                   Comprobante (PDF o Foto)
                 </label>
                 <div className="flex items-center gap-2">
-                  <label className="flex-1 py-2 px-3 rounded-xl border border-dashed border-rose-300 bg-rose-50/50 text-xs font-bold text-rose-700 hover:bg-rose-100/60 cursor-pointer flex items-center justify-center gap-1.5 truncate">
+                  <label className="flex-1 min-h-11 sm:min-h-0 py-2 px-3 rounded-xl border border-dashed border-rose-300 bg-rose-50/50 text-xs font-bold text-rose-700 hover:bg-rose-100/60 cursor-pointer flex items-center justify-center gap-1.5 truncate">
                     <Upload className="w-3.5 h-3.5 shrink-0" />
                     <span className="truncate">
                       {procesandoComprobante
@@ -1144,7 +1190,8 @@ export default function ProveedoresFacturasPage() {
                         setNombreArchivoComprobante('');
                       }}
                       title="Quitar comprobante adjunto"
-                      className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-600 cursor-pointer"
+                      aria-label="Quitar comprobante adjunto"
+                      className="touch-target rounded-xl border border-slate-200 text-slate-400 hover:text-rose-600 cursor-pointer"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1153,8 +1200,8 @@ export default function ProveedoresFacturasPage() {
               </div>
             </div>
 
-            {/* Líneas de DetalleIngreso con Selector Interactivo estilo Carrito en Vivo */}
-            <div className="space-y-3 pt-2">
+            {/* Paso 2: líneas de DetalleIngreso con selector interactivo estilo carrito en vivo */}
+            <div className={`space-y-3 pt-2 ${pasoFactura === 1 ? '' : 'max-sm:hidden'}`}>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
@@ -1173,7 +1220,7 @@ export default function ProveedoresFacturasPage() {
                       abrirModalSelectorProductos();
                       setModalNuevaPrendaAbierto(true);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 min-h-11 sm:min-h-0 sm:py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-sm sm:text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" /> Nueva Prenda
                   </button>
@@ -1181,10 +1228,13 @@ export default function ProveedoresFacturasPage() {
                   <button
                     type="button"
                     onClick={abrirModalSelectorProductos}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-rose-600 transition cursor-pointer shadow-xs"
+                    className="inline-flex items-center justify-center gap-2 px-4 min-h-11 sm:min-h-0 sm:py-2 rounded-xl bg-slate-900 text-white text-sm sm:text-xs font-bold hover:bg-rose-600 transition cursor-pointer shadow-xs"
                   >
-                    <PackagePlus className="w-4 h-4" /> Selección Múltiple de Indumentaria (Carrito
-                    en Vivo)
+                    <PackagePlus className="w-4 h-4" />
+                    <span className="sm:hidden">Elegir prendas</span>
+                    <span className="hidden sm:inline">
+                      Selección Múltiple de Indumentaria (Carrito en Vivo)
+                    </span>
                   </button>
                 </div>
               </div>
@@ -1313,7 +1363,8 @@ export default function ProveedoresFacturasPage() {
                             onClick={() =>
                               setLineasIngreso(lineasIngreso.filter((_, i) => i !== idx))
                             }
-                            className="p-2 text-slate-400 hover:text-rose-600 disabled:opacity-30 cursor-pointer"
+                            aria-label="Quitar línea"
+                            className="touch-target text-slate-400 hover:text-rose-600 disabled:opacity-30 cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1325,7 +1376,11 @@ export default function ProveedoresFacturasPage() {
               )}
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div
+              className={`pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                pasoFactura === 1 ? '' : 'max-sm:hidden'
+              }`}
+            >
               <div className="text-sm font-bold text-slate-800">
                 Costo Total Factura:{' '}
                 <span className="text-lg font-extrabold text-rose-600">
@@ -1335,13 +1390,30 @@ export default function ProveedoresFacturasPage() {
               <button
                 type="submit"
                 disabled={guardandoFactura || procesandoComprobante || lineasIngreso.length === 0}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition cursor-pointer disabled:opacity-50"
+                className="hidden sm:inline-flex px-5 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition cursor-pointer disabled:opacity-50"
               >
                 {guardandoFactura
                   ? 'Procesando Ingreso...'
                   : 'Registrar Factura, Sumar Stock y Actualizar Costos'}
               </button>
             </div>
+
+            <PieStepper
+              sobreBarraInferior
+              pasoActual={pasoFactura}
+              totalPasos={PASOS_FACTURA.length}
+              onAtras={() => irAPasoFactura(pasoFactura - 1)}
+              onSiguiente={() => irAPasoFactura(pasoFactura + 1)}
+              onCancelar={() => setPasoFactura(0)}
+              deshabilitado={
+                guardandoFactura || procesandoComprobante || lineasIngreso.length === 0
+              }
+              textoFinal={
+                guardandoFactura
+                  ? 'Registrando...'
+                  : `Registrar factura • $${costoTotalFactura.toLocaleString('es-AR')}`
+              }
+            />
           </form>
 
           {/* Historial de Facturas Registradas */}

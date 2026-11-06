@@ -25,6 +25,7 @@ import {
   calcularPrecioSugerido,
 } from '@/lib/services/pricing.service';
 import { comprimirImagen } from '@/lib/comprimirImagen';
+import { Stepper, PieStepper, esPantallaChica } from '@/components/mobile/Stepper';
 import { mapearTextoAColorHex, normalizarNombreColor } from '@/lib/colores';
 
 export interface NuevaPrendaVarianteCreada {
@@ -191,6 +192,10 @@ export function NuevaPrendaModal({
 
   const [listaVariantesNuevas, setListaVariantesNuevas] = useState<VarianteNuevaRow[]>([]);
 
+  // En celular el formulario se recorre en pasos; en escritorio se ve completo
+  const [paso, setPaso] = useState(0);
+  const contenedorRef = useRef<HTMLDivElement>(null);
+
   // Si el modal se abrió antes de que llegaran los datos, completar categoría y marca
   useEffect(() => {
     if (!abierto) return;
@@ -259,6 +264,7 @@ export function NuevaPrendaModal({
     setMostrarAltaMarcaRapida(false);
     setMostrarAltaProvRapida(false);
     setMostrarAltaDescRapida(false);
+    setPaso(0);
   }, [
     abierto,
     categorias,
@@ -485,8 +491,50 @@ export function NuevaPrendaModal({
     }
   };
 
+  const PASOS = [{ titulo: 'Datos' }, { titulo: 'Precio' }, { titulo: 'Talles y colores' }];
+  const ULTIMO_PASO = PASOS.length - 1;
+
+  // Los campos de los pasos ocultos no se pueden validar con el navegador
+  // (están con display:none), así que se revisan al avanzar.
+  const validarPaso = (n: number): boolean => {
+    if (n === 0 && !nuevoProdForm.nombre.trim()) {
+      alert('Ingresá el nombre de la prenda.');
+      return false;
+    }
+    if (n === 1 && (!(nuevoProdForm.precioCosto > 0) || !(nuevoProdForm.precio > 0))) {
+      alert('Revisá el precio de costo y el precio de venta.');
+      return false;
+    }
+    return true;
+  };
+
+  const irAPaso = (destino: number) => {
+    const n = Math.max(0, Math.min(ULTIMO_PASO, destino));
+    // Para avanzar hay que completar los pasos intermedios; retroceder siempre se puede
+    for (let i = paso; i < n; i++) {
+      if (!validarPaso(i)) {
+        setPaso(i);
+        return;
+      }
+    }
+    setPaso(n);
+    contenedorRef.current?.scrollTo({ top: 0 });
+  };
+
+  // En móvil cada paso muestra solo su sección; desde sm se ve todo
+  const visibleEnPaso = (n: number) => (paso === n ? '' : 'max-sm:hidden');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // "Ir" en el teclado del celular envía el formulario: en pasos intermedios, avanza
+    if (esPantallaChica() && paso < ULTIMO_PASO) {
+      irAPaso(paso + 1);
+      return;
+    }
+    if (!validarPaso(0) || !validarPaso(1)) {
+      setPaso(!nuevoProdForm.nombre.trim() ? 0 : 1);
+      return;
+    }
     if (listaVariantesNuevas.length === 0) {
       alert('Agrega al menos un elemento de Talle y Color a la lista.');
       return;
@@ -563,25 +611,38 @@ export function NuevaPrendaModal({
 
   return (
     <div
-      className={`fixed inset-0 ${zIndexClass} bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto`}
+      ref={contenedorRef}
+      className={`fixed inset-0 ${zIndexClass} bg-slate-900/60 backdrop-blur-xs flex items-start sm:items-center justify-center sm:p-4 overflow-y-auto scroll-touch`}
     >
-      <div className="bg-white rounded-2xl max-w-3xl w-full border border-slate-200 shadow-2xl overflow-hidden my-8">
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-          <h2 className="text-base font-bold flex items-center gap-2">
-            <Tag className="w-4 h-4 text-rose-400" /> Incorporar Nueva Prenda al Catálogo
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-slate-400 hover:text-white cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+      <div className="bg-white sm:rounded-2xl max-w-3xl w-full min-h-dvh sm:min-h-0 border-slate-200 sm:border shadow-2xl sm:overflow-hidden sm:my-8 flex flex-col">
+        <div className="sticky top-0 z-10 sm:static px-4 sm:px-6 pt-safe bg-slate-900 text-white">
+          <div className="min-h-14 py-2 sm:py-4 flex items-center justify-between gap-3">
+            <h2 className="text-base font-bold flex items-center gap-2 min-w-0">
+              <Tag className="w-4 h-4 text-rose-400 shrink-0" />
+              <span className="truncate">
+                <span className="sm:hidden">Nueva prenda</span>
+                <span className="hidden sm:inline">Incorporar Nueva Prenda al Catálogo</span>
+              </span>
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar"
+              className="touch-target -mr-2 text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[84vh] overflow-y-auto">
-          {/* Datos generales de la Prenda */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <form
+          onSubmit={handleSubmit}
+          className="flex-1 flex flex-col px-4 pt-4 sm:p-6 space-y-5 sm:max-h-[84vh] sm:overflow-y-auto"
+        >
+          <Stepper pasos={PASOS} pasoActual={paso} onIrAPaso={irAPaso} />
+
+          {/* Paso 1: datos generales de la prenda */}
+          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3.5 ${visibleEnPaso(0)}`}>
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Nombre de la Indumentaria *
@@ -751,7 +812,11 @@ export function NuevaPrendaModal({
                 </button>
               </div>
             )}
+          </div>
 
+          {/* Paso 2: precio y descuento */}
+          <div className={`space-y-5 ${visibleEnPaso(1)}`}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Precio Costo ($)
@@ -954,8 +1019,10 @@ export function NuevaPrendaModal({
             </div>
           </div>
 
-          {/* Lista Dinámica de Variantes: Talle, Color, Stock y Cargar Imagen (con reutilización por color) */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5">
+          </div>
+
+          {/* Paso 3: lista de variantes (talle, color, stock e imagen, con reutilización por color) */}
+          <div className={`p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5 ${visibleEnPaso(2)}`}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
@@ -977,7 +1044,7 @@ export function NuevaPrendaModal({
               <button
                 type="button"
                 onClick={agregarElementoVarianteNueva}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition cursor-pointer shrink-0 shadow-2xs"
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 min-h-11 sm:min-h-0 sm:py-2 rounded-xl bg-rose-600 text-white text-sm sm:text-xs font-bold hover:bg-rose-700 transition cursor-pointer shrink-0 shadow-2xs"
               >
                 <Plus className="w-4 h-4" /> Agregar Talle y Color a la Lista
               </button>
@@ -1131,7 +1198,7 @@ export function NuevaPrendaModal({
                           setListaVariantesNuevas((prev) => prev.filter((_, i) => i !== idx))
                         }
                         title="Quitar este elemento de la lista"
-                        className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-30 cursor-pointer"
+                        className="touch-target rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-30 cursor-pointer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1142,7 +1209,20 @@ export function NuevaPrendaModal({
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <div className="flex-1 sm:hidden" />
+          <PieStepper
+            pasoActual={paso}
+            totalPasos={PASOS.length}
+            onAtras={() => irAPaso(paso - 1)}
+            onSiguiente={() => irAPaso(paso + 1)}
+            onCancelar={onClose}
+            deshabilitado={guardando || comprimiendoImagen}
+            textoFinal={
+              comprimiendoImagen ? 'Procesando foto...' : guardando ? 'Guardando...' : 'Guardar prenda'
+            }
+          />
+
+          <div className="hidden sm:flex justify-end gap-2 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
