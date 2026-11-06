@@ -18,6 +18,8 @@ interface BottomSheetProps {
   anchoEscritorio?: string;
   /** Elemento extra junto al título (por ejemplo, un contador) */
   accesorioTitulo?: React.ReactNode;
+  /** z-index para apilarlo sobre otra ventana (por defecto z-50) */
+  zIndexClass?: string;
 }
 
 // Distancia (px) que hay que arrastrar hacia abajo para cerrar el panel
@@ -41,6 +43,7 @@ export function BottomSheet({
   alturaMaxima = '85dvh',
   anchoEscritorio = 'sm:max-w-lg',
   accesorioTitulo,
+  zIndexClass = 'z-50',
 }: BottomSheetProps) {
   const idTitulo = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -115,7 +118,7 @@ export function BottomSheet({
   const arrastrando = inicioArrastre.current !== null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
+    <div className={`fixed inset-0 ${zIndexClass} flex items-end justify-center sm:items-center sm:p-6`}>
       {/* Fondo: tocarlo cierra el panel */}
       <div
         aria-hidden="true"

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Tag,
   X,
@@ -8,13 +8,18 @@ import {
   Building2,
   Percent,
   Plus,
-  Layers,
-  Upload,
-  Image as ImageIcon,
-  Trash2,
-  CheckCircle2,
 } from 'lucide-react';
-import { ColorSelector, type ColorOpcion } from '@/components/catalogo/ColorSelector';
+import type { ColorOpcion } from '@/components/catalogo/ColorSelector';
+import { GestionFotosSheet } from '@/components/catalogo/GestionFotosSheet';
+import {
+  GestionVariantesSheet,
+  type VarianteEditable,
+} from '@/components/catalogo/GestionVariantesSheet';
+import {
+  TarjetasFotosVariantes,
+  agruparColoresDeVariantes,
+} from '@/components/catalogo/TarjetasFotosVariantes';
+import { subirFotosBorrador, useGaleriaBorrador } from '@/components/catalogo/galeriaPrenda';
 import {
   CategoriaSelector,
   agregarCategoria,
@@ -24,9 +29,8 @@ import {
   calcularPrecioNetoConDescuento,
   calcularPrecioSugerido,
 } from '@/lib/services/pricing.service';
-import { comprimirImagen } from '@/lib/comprimirImagen';
 import { Stepper, PieStepper, esPantallaChica } from '@/components/mobile/Stepper';
-import { mapearTextoAColorHex, normalizarNombreColor } from '@/lib/colores';
+import { mapearTextoAColorHex } from '@/lib/colores';
 
 export interface NuevaPrendaVarianteCreada {
   codVariante: number;
@@ -62,13 +66,6 @@ export interface NuevoProductoCreado {
   variantes: NuevaPrendaVarianteCreada[];
 }
 
-interface VarianteNuevaRow {
-  idTemp: string;
-  codTalle: number;
-  codColor: number;
-  stock: number;
-  imagenVariante: string;
-}
 
 /** Cantidad cargada en el formulario para cada variante creada (por codVariante). */
 export type CantidadesPorVariante = Record<number, number>;
@@ -153,7 +150,10 @@ export function NuevaPrendaModal({
   }, [coloresIniciales]);
 
   const [guardando, setGuardando] = useState(false);
-  const [comprimiendoImagen, setComprimiendoImagen] = useState(false);
+  // Al crear: progreso de la subida de fotos (la prenda ya existe en ese momento)
+  const [progresoFotos, setProgresoFotos] = useState<{ actual: number; total: number } | null>(
+    null
+  );
 
   // Sub-formularios rápidos al vuelo
   const [mostrarAltaMarcaRapida, setMostrarAltaMarcaRapida] = useState(false);
@@ -190,7 +190,18 @@ export function NuevaPrendaModal({
     codProveedorHabitual: '',
   });
 
-  const [listaVariantesNuevas, setListaVariantesNuevas] = useState<VarianteNuevaRow[]>([]);
+  // Borrador de la prenda (todavía no tiene ID): variantes y fotos por color en memoria.
+  // Se insertan en la base recién al tocar «Guardar prenda».
+  const [listaVariantesNuevas, setListaVariantesNuevas] = useState<VarianteEditable[]>([]);
+  const {
+    galeria: galeriaBorrador,
+    acciones: accionesBorrador,
+    reiniciar: reiniciarGaleria,
+    fotosPorColor,
+  } = useGaleriaBorrador(colores);
+  // Paneles de fotos y de variantes (bottom sheet en celular, ventana en escritorio)
+  const [panelFotos, setPanelFotos] = useState<{ codColor?: number } | null>(null);
+  const [panelVariantes, setPanelVariantes] = useState(false);
 
   // En celular el formulario se recorre en pasos; en escritorio se ve completo
   const [paso, setPaso] = useState(0);
@@ -228,8 +239,8 @@ export function NuevaPrendaModal({
     estabaAbierto.current = abierto;
     if (!recienAbierto) return;
     const mkInicial = categorias[0]?.markupPorDefectoCategoria ?? 125;
-    const talleInicial = talles[0]?.codTalle ?? 0;
-    const colorInicial = coloresIniciales[0]?.codColor ?? 0;
+    const talleInicial = talles[0];
+    const colorInicial = coloresIniciales[0];
     const provDefecto =
       codProveedorPreseleccionado && codProveedorPreseleccionado > 0
         ? String(codProveedorPreseleccionado)
@@ -254,13 +265,16 @@ export function NuevaPrendaModal({
 
     setListaVariantesNuevas([
       {
-        idTemp: `var-${Date.now()}-1`,
-        codTalle: talleInicial,
-        codColor: colorInicial,
+        codTalle: talleInicial?.codTalle ?? 0,
+        codColor: colorInicial?.codColor ?? 0,
         stock: 6,
-        imagenVariante: '',
+        talle: talleInicial,
+        color: colorInicial,
       },
     ]);
+    reiniciarGaleria();
+    setPanelFotos(null);
+    setPanelVariantes(false);
     setMostrarAltaMarcaRapida(false);
     setMostrarAltaProvRapida(false);
     setMostrarAltaDescRapida(false);
@@ -274,135 +288,16 @@ export function NuevaPrendaModal({
     temporadas,
     proveedoresIniciales,
     codProveedorPreseleccionado,
+    reiniciarGaleria,
   ]);
 
+  // Colores de la prenda nueva con sus talles (comparten las fotos)
+  const coloresBorrador = useMemo(
+    () => agruparColoresDeVariantes(listaVariantesNuevas, colores, talles),
+    [listaVariantesNuevas, colores, talles]
+  );
+
   if (!abierto) return null;
-
-  // Compara si dos códigos de color corresponden al mismo color (por ID o por nombre normalizado)
-  const sonMismoColor = (
-    codColorA: number,
-    codColorB: number,
-    catalogoColores: ColorOpcion[] = colores
-  ): boolean => {
-    if (Number(codColorA) === Number(codColorB)) return true;
-    const objA = catalogoColores.find((c) => c.codColor === Number(codColorA));
-    const objB = catalogoColores.find((c) => c.codColor === Number(codColorB));
-    if (!objA || !objB) return false;
-    return normalizarNombreColor(objA.nombreColor) === normalizarNombreColor(objB.nombreColor);
-  };
-
-  // Busca si alguna variante ya cargada con ese mismo color posee imagen subida
-  const obtenerImagenPreviaPorColor = (
-    filas: VarianteNuevaRow[],
-    codColorBuscado: number,
-    excluirIdTemp?: string,
-    catalogoColores: ColorOpcion[] = colores
-  ): string => {
-    const coincidencia = filas.find(
-      (f) =>
-        f.idTemp !== excluirIdTemp &&
-        f.imagenVariante &&
-        f.imagenVariante.trim() !== '' &&
-        sonMismoColor(f.codColor, codColorBuscado, catalogoColores)
-    );
-    return coincidencia?.imagenVariante || '';
-  };
-
-  const agregarElementoVarianteNueva = () => {
-    setListaVariantesNuevas((prev) => {
-      const sigTalle =
-        talles[prev.length % Math.max(1, talles.length)]?.codTalle ?? talles[0]?.codTalle ?? 0;
-      // Por defecto conserva el color de la última variante para facilitar cargar varios talles del mismo color
-      const ultimaFila = prev[prev.length - 1];
-      const sigColor = ultimaFila?.codColor ?? colores[0]?.codColor ?? 0;
-      const imagenReutilizada = obtenerImagenPreviaPorColor(prev, sigColor);
-
-      return [
-        ...prev,
-        {
-          idTemp: `var-${Date.now()}-${prev.length + 1}`,
-          codTalle: sigTalle,
-          codColor: sigColor,
-          stock: 5,
-          imagenVariante: imagenReutilizada,
-        },
-      ];
-    });
-  };
-
-  const prepararImagen = async (file: File): Promise<string | null> => {
-    setComprimiendoImagen(true);
-    try {
-      return await comprimirImagen(file);
-    } catch {
-      alert('No se pudo procesar la imagen. Probá con otro archivo.');
-      return null;
-    } finally {
-      setComprimiendoImagen(false);
-    }
-  };
-
-  const handleSubirImagenVarianteNueva = async (idx: number, file?: File) => {
-    if (!file) return;
-    const dataUrl = await prepararImagen(file);
-    if (!dataUrl) return;
-
-    setListaVariantesNuevas((prev) => {
-      const filaObjetivo = prev[idx];
-      if (!filaObjetivo) return prev;
-      const codColorObjetivo = filaObjetivo.codColor;
-
-      // Asignar la imagen a esta variante y automáticamente a todas las variantes del mismo color
-      return prev.map((fila, i) => {
-        if (i === idx || sonMismoColor(fila.codColor, codColorObjetivo)) {
-          return { ...fila, imagenVariante: dataUrl };
-        }
-        return fila;
-      });
-    });
-
-    if (idx === 0) {
-      setNuevoProdForm((prev) => ({ ...prev, imagen: dataUrl }));
-    }
-  };
-
-  const handleCambioColorVariante = (idTemp: string, nuevoColorObj: ColorOpcion) => {
-    const listaColoresActualizada = colores.some((c) => c.codColor === nuevoColorObj.codColor)
-      ? colores
-      : [...colores, nuevoColorObj];
-
-    setListaVariantesNuevas((prev) => {
-      const imagenExistenteDelNuevoColor = obtenerImagenPreviaPorColor(
-        prev,
-        nuevoColorObj.codColor,
-        idTemp,
-        listaColoresActualizada
-      );
-
-      return prev.map((row) => {
-        if (row.idTemp !== idTemp) return row;
-        const mismoColorQueAntes = sonMismoColor(
-          row.codColor,
-          nuevoColorObj.codColor,
-          listaColoresActualizada
-        );
-        if (mismoColorQueAntes) {
-          return {
-            ...row,
-            codColor: nuevoColorObj.codColor,
-            imagenVariante: row.imagenVariante || imagenExistenteDelNuevoColor,
-          };
-        }
-        // Si cambió a un color que ya tiene foto en otra fila, se reutiliza automáticamente;
-        // si cambió a un color nuevo sin foto, se limpia para solicitar la foto del nuevo color.
-        return {
-          ...row,
-          codColor: nuevoColorObj.codColor,
-          imagenVariante: imagenExistenteDelNuevoColor,
-        };
-      });
-    });
-  };
 
   const crearColor = async (nombreColor: string, codigoHex: string): Promise<ColorOpcion> => {
     const hexMapeado = mapearTextoAColorHex(nombreColor, codigoHex);
@@ -491,7 +386,7 @@ export function NuevaPrendaModal({
     }
   };
 
-  const PASOS = [{ titulo: 'Datos' }, { titulo: 'Precio' }, { titulo: 'Talles y colores' }];
+  const PASOS = [{ titulo: 'Datos' }, { titulo: 'Precio' }, { titulo: 'Fotos y talles' }];
   const ULTIMO_PASO = PASOS.length - 1;
 
   // Los campos de los pasos ocultos no se pueden validar con el navegador
@@ -541,25 +436,6 @@ export function NuevaPrendaModal({
     }
     setGuardando(true);
     try {
-      const primeraImg = listaVariantesNuevas.find((v) => v.imagenVariante)?.imagenVariante;
-
-      // La foto de cada color viaja una sola vez (en la primera fila de ese color). La tienda
-      // y el panel la toman para todos los talles del color, así no se guarda repetida.
-      const imagenesAEnviar: Record<string, string | null> = {};
-      const imagenEnviadaPorColor = new Map<number, string>();
-      for (const v of listaVariantesNuevas) {
-        const img =
-          v.imagenVariante || obtenerImagenPreviaPorColor(listaVariantesNuevas, v.codColor) || null;
-        if (!img) {
-          imagenesAEnviar[v.idTemp] = null;
-        } else if (imagenEnviadaPorColor.get(v.codColor) === img) {
-          imagenesAEnviar[v.idTemp] = null;
-        } else {
-          if (!imagenEnviadaPorColor.has(v.codColor)) imagenEnviadaPorColor.set(v.codColor, img);
-          imagenesAEnviar[v.idTemp] = img;
-        }
-      }
-
       // Relaciona cada variante creada con la fila del formulario (mismo talle y color, en orden)
       const emparejarCantidades = (prod: NuevoProductoCreado): CantidadesPorVariante => {
         const usadas = new Set<number>();
@@ -580,12 +456,22 @@ export function NuevaPrendaModal({
         }
         return cantidades;
       };
+
+      // Solo se guardan las fotos de los colores que tienen talles
+      const coloresConTalles = new Set(coloresBorrador.map((c) => c.codColor));
+      const hayFotos = Object.entries(fotosPorColor).some(
+        ([cod, fotos]) => fotos.length > 0 && coloresConTalles.has(Number(cod))
+      );
+
+      // 1) Se crea la prenda con sus variantes (sin fotos: no entrarían en una sola petición)
       const res = await fetch('/api/catalogo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...nuevoProdForm,
-          imagen: primeraImg || nuevoProdForm.imagen,
+          // La foto principal sale de la primera foto que se suba
+          imagen: hayFotos ? '' : nuevoProdForm.imagen,
+          fotosPendientes: hayFotos,
           codDescuento: nuevoProdForm.codDescuento ? Number(nuevoProdForm.codDescuento) : null,
           codProveedorHabitual: nuevoProdForm.codProveedorHabitual
             ? Number(nuevoProdForm.codProveedorHabitual)
@@ -595,17 +481,52 @@ export function NuevaPrendaModal({
             codColor: Number(v.codColor),
             // Desde una factura, el stock entra al registrar la factura
             stock: modoIngresoFactura ? 0 : Number(v.stock),
-            imagenVariante: imagenesAEnviar[v.idTemp] ?? null,
+            imagenVariante: null,
           })),
         }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as NuevoProductoCreado & { error?: string };
       if (!res.ok) throw new Error(data.error || 'Error al crear producto');
-      await onSuccess(data, emparejarCantidades(data as NuevoProductoCreado));
+
+      // 2) Con la prenda creada, las fotos del borrador pasan a su galería (de a una)
+      if (hayFotos) {
+        const resultado = await subirFotosBorrador(
+          data.codProducto,
+          fotosPorColor,
+          coloresConTalles,
+          (actual, total) => setProgresoFotos({ actual, total })
+        );
+        // La pantalla que abrió el formulario ve las portadas sin volver a pedir la prenda
+        const portadaPorColor = new Map(
+          Object.entries(fotosPorColor)
+            .filter(([, fotos]) => fotos.length > 0)
+            .map(([cod, fotos]) => [Number(cod), fotos[0].url])
+        );
+        if (resultado.subidas > 0) {
+          data.variantes = data.variantes.map((v) => ({
+            ...v,
+            imagenVariante: portadaPorColor.get(v.codColor) ?? v.imagenVariante ?? null,
+          }));
+          data.imagen =
+            portadaPorColor.get(data.variantes[0]?.codColor) ??
+            [...portadaPorColor.values()][0] ??
+            data.imagen;
+        }
+        if (resultado.fallidas > 0) {
+          alert(
+            `La prenda se creó, pero ${resultado.fallidas} foto(s) no se guardaron` +
+              (resultado.error ? `: ${resultado.error}` : '.') +
+              ' Podés agregarlas desde «Editar prenda» › «Gestionar fotos».'
+          );
+        }
+      }
+
+      await onSuccess(data, emparejarCantidades(data));
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Error al crear producto');
     } finally {
       setGuardando(false);
+      setProgresoFotos(null);
     }
   };
 
@@ -1021,192 +942,23 @@ export function NuevaPrendaModal({
 
           </div>
 
-          {/* Paso 3: lista de variantes (talle, color, stock e imagen, con reutilización por color) */}
-          <div className={`p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5 ${visibleEnPaso(2)}`}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                  <Layers className="w-4 h-4 text-rose-600" /> Lista de Talles, Colores, Stock e
-                  Imágenes ({listaVariantesNuevas.length})
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  Si agregás otro talle del mismo color, la imagen subida para ese color se reutiliza
-                  automáticamente. Solo necesitás subir una foto nueva cuando el color cambia.
-                </p>
-                {modoIngresoFactura && (
-                  <p className="text-[11px] font-semibold text-indigo-700">
-                    La cantidad de cada talle entra a la factura y se suma al stock recién al
-                    registrarla.
-                  </p>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={agregarElementoVarianteNueva}
-                className="inline-flex items-center justify-center gap-1.5 px-3.5 min-h-11 sm:min-h-0 sm:py-2 rounded-xl bg-rose-600 text-white text-sm sm:text-xs font-bold hover:bg-rose-700 transition cursor-pointer shrink-0 shadow-2xs"
-              >
-                <Plus className="w-4 h-4" /> Agregar Talle y Color a la Lista
-              </button>
-            </div>
-
-            <div className="space-y-2.5">
-              {listaVariantesNuevas.map((item, idx) => {
-                const colorSelObj = colores.find((c) => c.codColor === Number(item.codColor));
-                const hexColorDinamico = mapearTextoAColorHex(
-                  colorSelObj?.nombreColor || '',
-                  colorSelObj?.codigoHex
-                );
-
-                // Determinar si una fila anterior ya tiene este mismo color con imagen cargada
-                const indicePrimeraFilaMismoColor = listaVariantesNuevas.findIndex((f) =>
-                  sonMismoColor(f.codColor, item.codColor)
-                );
-                const esColorRepetido =
-                  indicePrimeraFilaMismoColor >= 0 && indicePrimeraFilaMismoColor < idx;
-                const imagenEfectiva =
-                  item.imagenVariante ||
-                  obtenerImagenPreviaPorColor(listaVariantesNuevas, item.codColor);
-
-                return (
-                  <div
-                    key={item.idTemp}
-                    className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-2xs grid grid-cols-1 sm:grid-cols-12 gap-3 items-center"
-                  >
-                    <div className="sm:col-span-3">
-                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                        Talle
-                      </label>
-                      <select aria-label="Talle"
-                        value={item.codTalle}
-                        onChange={(e) => {
-                          const copia = [...listaVariantesNuevas];
-                          copia[idx] = { ...item, codTalle: Number(e.target.value) };
-                          setListaVariantesNuevas(copia);
-                        }}
-                        className="w-full px-2.5 py-2 text-xs font-bold rounded-lg border border-slate-300 bg-white"
-                      >
-                        {talles.map((t) => (
-                          <option key={t.codTalle} value={t.codTalle}>
-                            Talle {t.nombreTalle}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="sm:col-span-3">
-                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1 flex items-center justify-between">
-                        <span>Color</span>
-                        {colorSelObj && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 normal-case">
-                            <span
-                              className="w-3.5 h-3.5 rounded-full border border-slate-300 ring-2 ring-slate-100 inline-block shadow-2xs transition-colors"
-                              style={{ backgroundColor: hexColorDinamico }}
-                              title={`${colorSelObj.nombreColor} (${hexColorDinamico})`}
-                            />
-                          </span>
-                        )}
-                      </label>
-                      <ColorSelector
-                        colores={colores}
-                        value={item.codColor}
-                        onCrearColor={crearColor}
-                        onChange={(cObj) => handleCambioColorVariante(item.idTemp, cObj)}
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                        {modoIngresoFactura ? 'Cantidad que ingresa' : 'Stock (Unid.)'}
-                      </label>
-                      <input
-                        type="number"
-                inputMode="numeric"
-                        min={0}
-                        required
-                        value={item.stock}
-                        onChange={(e) => {
-                          const copia = [...listaVariantesNuevas];
-                          copia[idx] = { ...item, stock: Number(e.target.value) };
-                          setListaVariantesNuevas(copia);
-                        }}
-                        className="w-full px-2.5 py-2 text-xs font-bold rounded-lg border border-slate-300 bg-white"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-3">
-                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                        Imagen de la Prenda / Color
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <div className="w-9 h-9 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center shrink-0">
-                          {imagenEfectiva ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={imagenEfectiva}
-                              alt="Preview"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <ImageIcon className="w-4 h-4 text-slate-300" />
-                          )}
-                        </div>
-
-                        {esColorRepetido && imagenEfectiva ? (
-                          <div className="flex-1 py-1.5 px-2.5 rounded-lg border border-emerald-200 bg-emerald-50/70 text-[11px] font-bold text-emerald-800 flex items-center justify-between gap-1 truncate">
-                            <span className="inline-flex items-center gap-1 truncate">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                              <span className="truncate">Foto de {colorSelObj?.nombreColor}</span>
-                            </span>
-                            <label
-                              className="text-[10px] text-emerald-700 underline cursor-pointer shrink-0 ml-1"
-                              title="Reemplazar foto para este color"
-                            >
-                              Cambiar
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) =>
-                                  handleSubirImagenVarianteNueva(idx, e.target.files?.[0])
-                                }
-                                className="hidden"
-                              />
-                            </label>
-                          </div>
-                        ) : (
-                          <label className="flex-1 py-2 px-2.5 rounded-lg border border-dashed border-rose-300 bg-rose-50/50 text-[11px] font-bold text-rose-700 hover:bg-rose-100/60 cursor-pointer text-center truncate">
-                            <Upload className="w-3 h-3 inline mr-1" />
-                            {imagenEfectiva ? 'Cambiar foto' : 'Cargar foto'}
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) =>
-                                handleSubirImagenVarianteNueva(idx, e.target.files?.[0])
-                              }
-                              className="hidden"
-                            />
-                          </label>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="sm:col-span-1 flex justify-end pt-3 sm:pt-4">
-                      <button
-                        type="button"
-                        disabled={listaVariantesNuevas.length <= 1}
-                        onClick={() =>
-                          setListaVariantesNuevas((prev) => prev.filter((_, i) => i !== idx))
-                        }
-                        title="Quitar este elemento de la lista"
-                        className="touch-target rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-30 cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          {/* Paso 3: fotos (por color) y variantes, cada una en su propio panel */}
+          <div className={`space-y-2 ${visibleEnPaso(2)}`}>
+            <TarjetasFotosVariantes
+              colores={coloresBorrador}
+              variantes={listaVariantesNuevas}
+              galeria={galeriaBorrador}
+              onGestionarFotos={() => setPanelFotos({})}
+              onGestionarVariantes={() => setPanelVariantes(true)}
+              avisarStockBajo={!modoIngresoFactura}
+              textoUnidades={modoIngresoFactura ? 'a ingresar' : 'en stock'}
+            />
+            <p className="text-[11px] text-slate-500">
+              Las fotos de un color se comparten entre todos sus talles. Todo se guarda al tocar
+              «Guardar prenda».
+              {modoIngresoFactura &&
+                ' La cantidad de cada talle entra a la factura y se suma al stock recién al registrarla.'}
+            </p>
           </div>
 
           <div className="flex-1 sm:hidden" />
@@ -1216,9 +968,13 @@ export function NuevaPrendaModal({
             onAtras={() => irAPaso(paso - 1)}
             onSiguiente={() => irAPaso(paso + 1)}
             onCancelar={onClose}
-            deshabilitado={guardando || comprimiendoImagen}
+            deshabilitado={guardando}
             textoFinal={
-              comprimiendoImagen ? 'Procesando foto...' : guardando ? 'Guardando...' : 'Guardar prenda'
+              progresoFotos
+                ? `Subiendo fotos ${progresoFotos.actual}/${progresoFotos.total}…`
+                : guardando
+                  ? 'Guardando...'
+                  : 'Guardar prenda'
             }
           />
 
@@ -1232,18 +988,54 @@ export function NuevaPrendaModal({
             </button>
             <button
               type="submit"
-              disabled={guardando || comprimiendoImagen}
+              disabled={guardando}
               className="px-5 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 cursor-pointer shadow-xs disabled:opacity-50"
             >
-              {comprimiendoImagen
-                ? 'Procesando foto...'
+              {progresoFotos
+                ? `Subiendo fotos ${progresoFotos.actual} de ${progresoFotos.total}…`
                 : guardando
-                ? 'Guardando...'
-                : 'Guardar Nueva Prenda y sus Variantes'}
+                  ? 'Guardando...'
+                  : 'Guardar Nueva Prenda y sus Variantes'}
             </button>
           </div>
         </form>
       </div>
+
+      {/* Paneles del borrador: los mismos que en «Editar prenda», en modo creación */}
+      <GestionFotosSheet
+        abierto={panelFotos !== null}
+        onCerrar={() => setPanelFotos(null)}
+        acciones={accionesBorrador}
+        nombreProducto={nuevoProdForm.nombre.trim() || 'Nueva prenda'}
+        colores={coloresBorrador}
+        galeria={galeriaBorrador}
+        cargando={false}
+        error={null}
+        faltaActualizarBase={false}
+        onReintentar={() => {}}
+        codColorInicial={panelFotos?.codColor}
+        zIndexClass={zIndexClass}
+      />
+      <GestionVariantesSheet
+        abierto={panelVariantes}
+        onCerrar={() => setPanelVariantes(false)}
+        modo="creacion"
+        nombreProducto={nuevoProdForm.nombre.trim() || 'Nueva prenda'}
+        variantes={listaVariantesNuevas}
+        onCambiar={setListaVariantesNuevas}
+        originales={[]}
+        talles={talles}
+        colores={colores}
+        onCrearColor={crearColor}
+        galeria={galeriaBorrador}
+        onGestionarFotos={(codColor) => {
+          setPanelVariantes(false);
+          setPanelFotos({ codColor });
+        }}
+        etiquetaStock={modoIngresoFactura ? 'Cantidad que ingresa' : 'Stock'}
+        avisarStockBajo={!modoIngresoFactura}
+        zIndexClass={zIndexClass}
+      />
     </div>
   );
 }

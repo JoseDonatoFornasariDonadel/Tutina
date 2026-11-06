@@ -34,6 +34,16 @@ interface GestionVariantesSheetProps {
   galeria: GaleriaPrenda | null;
   /** Abre el panel de fotos en ese color */
   onGestionarFotos: (codColor: number) => void;
+  /**
+   * "edicion": prenda guardada (los cambios se guardan con «Guardar cambios»).
+   * "creacion": prenda nueva, todavía sin ID (todo se crea al guardar la prenda).
+   */
+  modo?: 'edicion' | 'creacion';
+  /** Texto del campo de stock (por ejemplo "Cantidad que ingresa" desde una factura) */
+  etiquetaStock?: string;
+  /** Marca "Stock bajo" (no aplica a la cantidad que ingresa con una factura) */
+  avisarStockBajo?: boolean;
+  zIndexClass?: string;
 }
 
 const STOCK_CRITICO = 3;
@@ -58,7 +68,12 @@ export function GestionVariantesSheet({
   onCrearColor,
   galeria,
   onGestionarFotos,
+  modo = 'edicion',
+  etiquetaStock = 'Stock',
+  avisarStockBajo = true,
+  zIndexClass,
 }: GestionVariantesSheetProps) {
+  const esCreacion = modo === 'creacion';
   const [filtroColor, setFiltroColor] = useState<number | 'TODOS'>('TODOS');
   const [visor, setVisor] = useState<{ codColor: number; nombre: string } | null>(null);
 
@@ -139,6 +154,7 @@ export function GestionVariantesSheet({
       titulo="Gestionar variantes"
       subtitulo={nombreProducto}
       alturaMaxima="92dvh"
+      zIndexClass={zIndexClass}
       anchoEscritorio="sm:max-w-2xl"
       accesorioTitulo={
         <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
@@ -164,7 +180,9 @@ export function GestionVariantesSheet({
             </button>
           </div>
           <p className="text-[11px] text-slate-500 text-center">
-            Los cambios se guardan al tocar «Guardar cambios» en la prenda.
+            {esCreacion
+              ? 'Las variantes se crean al tocar «Guardar prenda».'
+              : 'Los cambios se guardan al tocar «Guardar cambios» en la prenda.'}
           </p>
         </div>
       }
@@ -216,7 +234,7 @@ export function GestionVariantesSheet({
             const esNueva = v.codVariante === undefined;
             const antes = esNueva ? undefined : stockOriginal.get(v.codVariante);
             const cambioStock = antes !== undefined && antes !== v.stock;
-            const critico = v.stock < STOCK_CRITICO;
+            const critico = avisarStockBajo && v.stock < STOCK_CRITICO;
             const repetida = (repetidas.get(`${codTalleDe(v)}-${codColor}`) ?? 0) > 1;
             const nombreColor = color?.nombreColor ?? 'Sin color';
 
@@ -247,7 +265,7 @@ export function GestionVariantesSheet({
                     {miniatura ? (
                       <ImagenProducto src={miniatura} alt="" fill sizes="72px" className="object-cover" />
                     ) : (
-                      <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-slate-400">
+                      <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-slate-600">
                         <ImagePlus className="w-5 h-5" />
                         <span className="text-[10px] font-bold">Fotos</span>
                       </span>
@@ -272,10 +290,15 @@ export function GestionVariantesSheet({
                           Talle {talle?.nombreTalle ?? '—'} · {nombreColor}
                         </p>
                         <p className="text-[11px] text-slate-500 truncate">
-                          {esNueva ? 'Nueva: se crea al guardar' : v.sku}
+                          {esCreacion
+                            ? `Variante ${idx + 1} de ${variantes.length}`
+                            : esNueva
+                              ? 'Nueva: se crea al guardar'
+                              : v.sku}
                         </p>
                       </div>
-                      {esNueva && (
+                      {/* Una prenda nueva necesita al menos una variante */}
+                      {esNueva && !(esCreacion && variantes.length <= 1) && (
                         <button
                           type="button"
                           onClick={() => onCambiar(variantes.filter((_, i) => i !== idx))}
@@ -319,14 +342,14 @@ export function GestionVariantesSheet({
                 {/* Stock con botones grandes y teclado numérico */}
                 <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-slate-700">Stock</p>
+                    <p className="text-xs font-bold text-slate-700">{etiquetaStock}</p>
                     <p
                       className={`text-[11px] font-semibold flex items-center gap-1 ${
                         critico ? 'text-amber-700' : 'text-slate-500'
                       }`}
                     >
                       {critico && <AlertTriangle className="w-3 h-3" />}
-                      {critico ? 'Stock bajo' : 'Disponible'}
+                      {critico ? 'Stock bajo' : avisarStockBajo ? 'Disponible' : 'Unidades'}
                       {cambioStock && <span className="text-slate-500 font-medium">· antes {antes}</span>}
                     </p>
                   </div>
